@@ -3,6 +3,7 @@
 #include <string.h>
 #include <time.h>
 #include <jansson.h>
+#include <locale.h>
 
 #define DESC 300
 
@@ -56,5 +57,6 @@ void criarTarefa(Tarefa *tarefa) {
 	
 	main()
 	{
+		setlocale(LC_ALL, "Portuguese");
 		
 	}
