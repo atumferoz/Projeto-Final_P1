@@ -110,5 +110,62 @@ int dequeue(PriorityQueue* queue) {
 	main()
 	{
 		setlocale(LC_ALL, "Portuguese");
+
+		  // Loop principal do programa
+	  while (1) {
+	    // Apresentar o menu de opções
+	    printf("\nMenu Principal:\n");
+	    printf("1. Registrar Tarefa\n");
+	    printf("2. Processar Tarefa\n");
+	    printf("3. Buscar Tarefa por ID\n");
+	    printf("4. Listar Tarefas\n");
+	    printf("5. Gerar Relatório\n");
+	    printf("6. Salvar Tarefas em Ficheiro\n");
+	    printf("7. Carregar Tarefas do Ficheiro\n");
+	    printf("0. Sair\n");
+	
+	    // Obter a escolha do usuário
+	    int escolha;
+	    printf("Digite sua escolha: ");
+	    scanf("%d", &escolha);
+	
+	    switch (escolha) {
+	      case 1: // Registrar Tarefa
+	        Tarefa *novaTarefa = malloc(sizeof(Tarefa));
+	        criarTarefa(novaTarefa);
+	        //inserirFila(&fila, novaTarefa); // Inserir na fila ou pilha, de acordo com a prioridade
+	        break;
+	
+	      case 2: // Processar Tarefa
+	        break;
+	
+	      case 3: // Buscar Tarefa por ID
+	        break;
+	
+	      case 4: // Listar Tarefas
+	        break;
+	
+	      case 5: // Gerar Relatório
+	        break;
+	
+	      case 6: // Salvar Tarefas em Ficheiro
+	        break;
+	
+	      case 7: // Carregar Tarefas do Ficheiro
+	        break;
+	
+	      case 0: // Sair
+	        // Liberar memória alocada para as estruturas de dados
+	        // ...
+	
+	        printf("Saindo do programa...\n");
+	        exit(0);
+	
+	      default:
+	        printf("Opção inválida!\n");
+	    }
+	  }
+
+  	return 0;
 		
 	}
