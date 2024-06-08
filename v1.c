@@ -7,15 +7,14 @@
 
 #define DESC 300
 
-
 typedef struct Tarefa {
-  int id;
-  char *descricao;
-  int prioridade; // 1: alto, 0: baixo
-  struct tm dataCriacao;
-  struct tm dataConclusao;
-  int estado; // 0: em espera, 1: em execução, 2: concluída, 3: falha
-  char *payloadJSON;
+    int id;
+    char descricao[DESC];
+    int prioridade; // 1: alto, 0: baixo
+    struct tm dataCriacao;
+    struct tm dataConclusao;
+    int estado; // 0: em espera, 1: em execução, 2: concluída, 3: falha
+    char *payloadJSON;
 } Tarefa;
 
 
@@ -28,6 +27,13 @@ typedef struct Tarefa {
 } PriorityQueue;*/
 
 
+
+
+//Declaração das Funções
+void criarTarefa(Tarefa *tarefa);
+void destruirTarefa(Tarefa *tarefa);
+void limparBuffer();
+
 typedef struct Pilha {
   Tarefa *topo;
   int tamanho;
@@ -36,30 +42,35 @@ typedef struct Pilha {
 
 
 void criarTarefa(Tarefa *tarefa) {
-  // Alocar memória para a estrutura Tarefa
-  tarefa = malloc(sizeof(Tarefa));
+    if (!tarefa) {
+        printf("Erro ao alocar memória para a tarefa!\n");
+        return;
+    }
 
-  if (!tarefa) {
-    printf("Erro ao alocar memória para a tarefa!\n");
-    return;
-  }
+    printf("Digite o ID da tarefa: ");
+    scanf("%d", &tarefa->id);
+    limparBuffer();
 
-  // Solicitar e armazenar os dados da tarefa do usuário
-  printf("Digite o ID da tarefa: ");
-  scanf("%d", &tarefa->id);
+    printf("Digite a descrição da tarefa: ");
+    fgets(tarefa->descricao, DESC, stdin);
+    tarefa->descricao[strcspn(tarefa->descricao, "\n")] = 0; // Remove newline character
 
-  printf("Digite a descrição da tarefa: ");
-  scanf(" %[^\n]", tarefa->descricao);
+    printf("Digite a prioridade da tarefa (1 - alto, 0 - baixo): ");
+    scanf("%d", &tarefa->prioridade);
+    limparBuffer();
 
-  printf("Digite a prioridade da tarefa (1 - alto, 0 - baixo): ");
-  scanf("%d", &tarefa->prioridade);
-
+    tarefa->payloadJSON = NULL;
+    // Set other fields as needed
 }
 
 void destruirTarefa(Tarefa *tarefa) {
-  free(tarefa->descricao);
-  free(tarefa->payloadJSON);
-  free(tarefa);
+    free(tarefa->payloadJSON);
+    free(tarefa);
+}
+
+void limparBuffer() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
 }
 
 /*PriorityQueue* createQueue(int capacity) {
@@ -107,65 +118,57 @@ int dequeue(PriorityQueue* queue) {
     }*/
 
 	
-	main()
-	{
-		setlocale(LC_ALL, "Portuguese");
+int main() {
+    setlocale(LC_ALL, "Portuguese");
 
-		  // Loop principal do programa
-	  while (1) {
-	    // Apresentar o menu de opções
-	    printf("\nMenu Principal:\n");
-	    printf("1. Registrar Tarefa\n");
-	    printf("2. Processar Tarefa\n");
-	    printf("3. Buscar Tarefa por ID\n");
-	    printf("4. Listar Tarefas\n");
-	    printf("5. Gerar Relatório\n");
-	    printf("6. Salvar Tarefas em Ficheiro\n");
-	    printf("7. Carregar Tarefas do Ficheiro\n");
-	    printf("0. Sair\n");
-	
-	    // Obter a escolha do usuário
-	    int escolha;
-	    printf("Digite sua escolha: ");
-	    scanf("%d", &escolha);
-	
-	    switch (escolha) {
-	      case 1: // Registrar Tarefa
-	        Tarefa *novaTarefa = malloc(sizeof(Tarefa));
-	        criarTarefa(novaTarefa);
-	        //inserirFila(&fila, novaTarefa); // Inserir na fila ou pilha, de acordo com a prioridade
-	        break;
-	
-	      case 2: // Processar Tarefa
-	        break;
-	
-	      case 3: // Buscar Tarefa por ID
-	        break;
-	
-	      case 4: // Listar Tarefas
-	        break;
-	
-	      case 5: // Gerar Relatório
-	        break;
-	
-	      case 6: // Salvar Tarefas em Ficheiro
-	        break;
-	
-	      case 7: // Carregar Tarefas do Ficheiro
-	        break;
-	
-	      case 0: // Sair
-	        // Liberar memória alocada para as estruturas de dados
-	        // ...
-	
-	        printf("Saindo do programa...\n");
-	        exit(0);
-	
-	      default:
-	        printf("Opção inválida!\n");
-	    }
-	  }
+    while (1) {
+        printf("\nMenu Principal:\n");
+        printf("1. Registrar Tarefa\n");
+        printf("2. Processar Tarefa\n");
+        printf("3. Buscar Tarefa por ID\n");
+        printf("4. Listar Tarefas\n");
+        printf("5. Gerar Relatório\n");
+        printf("6. Salvar Tarefas em Ficheiro\n");
+        printf("7. Carregar Tarefas do Ficheiro\n");
+        printf("0. Sair\n");
 
-  	return 0;
-		
-	}
+        int escolha;
+        printf("Digite sua escolha: ");
+        scanf("%d", &escolha);
+        limparBuffer();
+
+        switch (escolha) {
+            case 1: {
+                Tarefa *novaTarefa = (Tarefa*)malloc(sizeof(Tarefa));
+                criarTarefa(novaTarefa);
+                // inserirFila(&fila, novaTarefa); // Inserir na fila ou pilha, de acordo com a prioridade
+                break;
+            }
+            case 2:
+                // Processar Tarefa
+                break;
+            case 3:
+                // Buscar Tarefa por ID
+                break;
+            case 4:
+                // Listar Tarefas
+                break;
+            case 5:
+                // Gerar Relatório
+                break;
+            case 6:
+                // Salvar Tarefas em Ficheiro
+                break;
+            case 7:
+                // Carregar Tarefas do Ficheiro
+                break;
+            case 0:
+                printf("Saindo do programa...\n");
+                exit(0);
+            default:
+                printf("Opção inválida!\n");
+        }
+    }
+
+    return 0;
+}
