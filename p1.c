@@ -213,7 +213,7 @@ int main() {
 
 
 
-
+//Está parte foi codigo escrito por mim que ão fico implrementado no codigo final e tenho o guardado para futuras referencias e saber o que fiz de errado
 
 
 
