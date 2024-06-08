@@ -59,8 +59,29 @@ void criarTarefa(Tarefa *tarefa) {
     scanf("%d", &tarefa->prioridade);
     limparBuffer();
 
-    tarefa->payloadJSON = NULL;
-    // Set other fields as needed
+	    // Inicializar os campos de data e hora com a data/hora atual
+	  time_t tempoAtual = time(NULL);
+	  struct tm *dataHoraAtual = localtime(&tempoAtual);
+	
+	  tarefa->dataCriacao = *dataHoraAtual;
+	  tarefa->dataConclusao.tm_year = 0; // Tarefa ainda não concluída
+	  tarefa->dataConclusao.tm_mon = 0;
+	  tarefa->dataConclusao.tm_mday = 0;
+	  tarefa->dataConclusao.tm_hour = 0;
+	  tarefa->dataConclusao.tm_min = 0;
+	  tarefa->dataConclusao.tm_sec = 0;
+	
+	  tarefa->estado = 0; // Tarefa em espera
+	
+	  // Alocar memória e solicitar o payload JSON ao usuário
+	  printf("Digite o payload JSON da tarefa: ");
+	  char buffer[1024];
+	  fgets(buffer, sizeof(buffer), stdin);
+	
+	  tarefa->payloadJSON = (char*)malloc(strlen(buffer) + 1);
+	  strcpy(tarefa->payloadJSON, buffer);
+	
+	  printf("Tarefa criada com sucesso!\n");
 }
 
 void destruirTarefa(Tarefa *tarefa) {
@@ -117,6 +138,39 @@ int dequeue(PriorityQueue* queue) {
         i = j;
     }*/
 
+	
+	
+	
+	
+//Função para salvar as tarefas
+
+void salvarTarefasEmFicheiro(Tarefa *tarefasRealizadas, int nRealizadas, char *ficheiroSaida) {
+  FILE *fp = fopen("Tarefa.txt", "w");
+
+  if (fp != NULL) {
+    for (int i = 0; i < nRealizadas; i++) {
+      Tarefa *tarefa = &tarefasRealizadas[i];
+
+      fprintf(fp, "ID: %d\n", tarefa->id);
+      fprintf(fp, "Descrição: %s\n", tarefa->descricao);
+      fprintf(fp, "Prioridade: %d\n", tarefa->prioridade);
+      // ... (Escrever outros campos da tarefa)
+      fprintf(fp, "\n");
+    }
+
+    fclose(fp);
+    printf("Tarefas salvas com sucesso!\n");
+  } else {
+    printf("Erro ao abrir o arquivo para salvar as tarefas!\n");
+  }
+}
+	
+	
+	
+	
+	
+	
+	
 	
 int main() {
     setlocale(LC_ALL, "Portuguese");
