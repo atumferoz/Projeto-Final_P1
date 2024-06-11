@@ -281,7 +281,7 @@ void listarTarefas(PriorityQueue *q) {
 }
 
 int main() {
-    setlocale(LC_ALL, "Portuguese");
+    //setlocale(LC_ALL, "Portuguese");
     PriorityQueue* q = createQueue();
     Stack* lowPriorityStack = malloc(sizeof(Stack));
     if (!lowPriorityStack) {
