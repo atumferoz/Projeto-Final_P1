@@ -3,7 +3,6 @@
 #include <string.h>
 #include <time.h>
 #include <locale.h>
-#include"json.h"
 
 #define DESC 300
 
@@ -12,7 +11,7 @@ typedef struct Tarefa { // Estrutura de dados para armazenar informações de um
     char descricao[DESC];
     int prioridade; // 1: alto, 0: baixo, 2: médio
     struct tm dataCriacao;
-    struct tm dataConclusao;
+    struct tm dataConclusao; 
     int estado; // 0: em espera, 1: em execução, 2: concluída, 3: falha
     char *payloadJSON;
 } Tarefa;
@@ -36,6 +35,7 @@ typedef struct Stack {  // Estrutura de dados para armazenar a pilha
 } Stack;
 
 // Function prototypes
+int menu();
 void criarTarefa(Tarefa *tarefa);
 void destruirTarefa(Tarefa *tarefa);
 void limparBuffer();
@@ -72,15 +72,9 @@ void criarTarefa(Tarefa *tarefa) {  // Função para criar uma nova tarefa
 
     // Inicializar os campos de data e hora com a data/hora atual
     time_t tempoAtual = time(NULL); // Obter o tempo atual
-    struct tm *dataHoraAtual = localtime(&tempoAtual);  // Converter o tempo atual para a estrutura tm
-    tarefa->dataCriacao = *dataHoraAtual;   // Atribuir a data/hora atual à data de criação da tarefa
+    tarefa->dataCriacao = *localtime(&tempoAtual);;   // Atribuir a data/hora atual à data de criação da tarefa
 
-    tarefa->dataConclusao.tm_year = 0; // Tarefa ainda não concluída
-    tarefa->dataConclusao.tm_mon = 0;   // Tarefa ainda não concluída
-    tarefa->dataConclusao.tm_mday = 0;  // Tarefa ainda não concluída
-    tarefa->dataConclusao.tm_hour = 0;  // Tarefa ainda não concluída
-    tarefa->dataConclusao.tm_min = 0;
-    tarefa->dataConclusao.tm_sec = 0;
+    tarefa->dataConclusao = (struct tm){0}; // Tarefa ainda não concluída
 
     tarefa->estado = 0; // Tarefa em espera
 
@@ -108,7 +102,7 @@ PriorityQueue* createQueue() {  // Função para criar uma nova fila de priorida
     PriorityQueue* q = malloc(sizeof(PriorityQueue));       // Alocar memória para a fila de prioridade
     if (!q) {   // Verificar se a fila foi alocada corretamente
         printf("Erro ao alocar memória para a fila de prioridade!\n");  // Exibir mensagem de erro
-        exit(EXIT_FAILURE); // Encerrar o programa com falha
+        exit(EXIT_FAILURE); // Encerrar o programa com falha7
     }
     q->front = NULL;    // Inicializar o início da fila como nulo
     return q;   // Retornar a fila de prioridade criada
@@ -200,11 +194,13 @@ void pushLowPriorityTasks(Stack* stack, Tarefa* tarefa) {   // Função para adi
 void salvarTarefasEmFicheiro(Tarefa *tarefasRealizadas, int nRealizadas, char *ficheiroSaida) { // Função para salvar as tarefas realizadas em um ficheiro
     FILE *fp = fopen(ficheiroSaida, "w");   // Abrir o ficheiro para escrita
     if (fp != NULL) {   // Verificar se o ficheiro foi aberto corretamente
+    printf("sendo realizado");
         for (int i = 0; i < nRealizadas; i++) { // Percorrer as tarefas realizadas
             Tarefa *tarefa = &tarefasRealizadas[i]; // Obter a tarefa atual
             fprintf(fp, "ID: %d\n", tarefa->id);    // Escrever o ID da tarefa no ficheiro
             fprintf(fp, "Descrição: %s\n", tarefa->descricao);  // Escrever a descrição da tarefa no ficheiro
             fprintf(fp, "Prioridade: %d\n", tarefa->prioridade);    // Escrever a prioridade da tarefa no ficheiro
+    //        fprintf(fp, "Data criação: %d\n", tarefa->prioridade);    // Escrever a prioridade da tarefa no ficheiro
             // Escrever outros campos da tarefa
             fprintf(fp, "\n");  // Escrever uma linha em branco
         }
@@ -227,15 +223,9 @@ void carregarTarefasDoFicheiro(PriorityQueue *q, Stack *lowPriorityStack, const 
 
             // Inicializar outros campos da tarefa
             time_t tempoAtual = time(NULL); // Obter o tempo atual
-            struct tm *dataHoraAtual = localtime(&tempoAtual);  // Converter o tempo atual para a estrutura tm
-            tarefa->dataCriacao = *dataHoraAtual;        // Atribuir a data/hora atual à data de criação da tarefa
+            tarefa->dataCriacao = *localtime(&tempoAtual);        // Atribuir a data/hora atual à data de criação da tarefa
 
-            tarefa->dataConclusao.tm_year = 0;  // Tarefa ainda não concluída
-            tarefa->dataConclusao.tm_mon = 0;   // Tarefa ainda não concluída
-            tarefa->dataConclusao.tm_mday = 0;  // Tarefa ainda não concluída
-            tarefa->dataConclusao.tm_hour = 0;  // Tarefa ainda não concluída
-            tarefa->dataConclusao.tm_min = 0;
-            tarefa->dataConclusao.tm_sec = 0;
+            tarefa->dataConclusao = (struct tm){0};  // Tarefa ainda não concluída
 
             tarefa->estado = 0; // Tarefa em espera
 
@@ -280,21 +270,8 @@ void listarTarefas(PriorityQueue *q) {  // Função para listar as tarefas na fi
         temp = temp->next;  // Avançar para o próximo nó
     }
 }
-
-int main() {    // Função principal
-    //setlocale(LC_ALL, "Portuguese");
-    PriorityQueue* q = createQueue();   // Criar uma nova fila de prioridade
-    Stack* lowPriorityStack = malloc(sizeof(Stack));    // Alocar memória para a pilha de tarefas de baixa prioridade
-    if (!lowPriorityStack) {    // Verificar se a pilha foi alocada corretamente
-        printf("Erro ao alocar memória para a pilha!\n");   // Exibir mensagem de erro
-        exit(EXIT_FAILURE); // Encerrar o programa com falha
-    }
-    lowPriorityStack->top = NULL;   // Inicializar o topo da pilha como nulo
-
-    Tarefa tarefasRealizadas[300];  // Array para armazenar as tarefas realizadas
-    int nRealizadas = 0;    // Contador para o número de tarefas realizadas
-
-    while (1) { // Loop infinito para exibir o menu
+int menu()
+{
         int choice; // Variável para armazenar a escolha do usuário
         printf("Menu:\n");  // Exibir o menu
         printf("1. Criar tarefa\n");
@@ -308,7 +285,25 @@ int main() {    // Função principal
         printf("Escolha uma opção: ");
         scanf("%d", &choice);
         limparBuffer(); // Limpar o buffer de entrada
+        return choice;
+}
+int main() {    // Função principal
+    int choice;
+    setlocale(LC_ALL, "Portuguese");
+    PriorityQueue* q = createQueue();   // Criar uma nova fila de prioridade
+    Stack* lowPriorityStack = malloc(sizeof(Stack));    // Alocar memória para a pilha de tarefas de baixa prioridade
+    if (!lowPriorityStack) {    // Verificar se a pilha foi alocada corretamente
+        printf("Erro ao alocar memória para a pilha!\n");   // Exibir mensagem de erro
+        exit(EXIT_FAILURE); // Encerrar o programa com falha
+    }
+    lowPriorityStack->top = NULL;   // Inicializar o topo da pilha como nulo
 
+    Tarefa tarefasRealizadas[300];  // Array para armazenar as tarefas realizadas
+    int nRealizadas = 0;    // Contador para o número de tarefas realizadas
+
+    while (1) { // Loop infinito para exibir o menu
+
+        choice = menu();
         switch (choice) {   // Verificar a escolha do usuário
             case 1: {
                 // Criar tarefa
