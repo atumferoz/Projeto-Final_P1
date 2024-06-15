@@ -41,7 +41,7 @@ void buscarTarefaPorID(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealiz
 void listarTarefas(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas);
 void imprimirDataHora(struct tm *data);
 int menu();
-void criarTarefa(Tarefa *tarefa);
+void criarTarefa(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas, Tarefa *tarefa);
 void destruirTarefa(Tarefa *tarefa);
 void limparBuffer();
 PriorityQueue* createQueue();
@@ -54,38 +54,52 @@ void freeStack(Stack* stack);
 void pushLowPriorityTasks(Stack* stack, Tarefa* tarefa);
 void salvarTarefasEmFicheiro(Tarefa *tarefasRealizadas, int nRealizadas);
 void carregarTarefasDoFicheiro(PriorityQueue *q, Stack *lowPriorityStack);
+int verificarIDusado(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas, int id); 
+void swap(Tarefa *a, Tarefa *b);
+int partition(Tarefa tarefas[], int low, int high);
+void quickSort(Tarefa tarefas[], int low, int high);
 
 
-void criarTarefa(Tarefa *tarefa) {  // Função para criar uma nova tarefa
-
+void criarTarefa(PriorityQueue *q, Tarefa *tarefasRealizadas, int nRealizadas, Tarefa *tarefa) {
     int numeroCop;
     char nome[100], novonome[100], caminho[100], cor[15], NomImpress[100];
     char payload[1000] = "";
 
-    if (!tarefa) {  // Verificar se a tarefa foi alocada corretamente
+    if (!tarefa) {  // verificar se a tarefa foi alocada corretamente
         printf("Erro ao alocar memória para a tarefa!\n");  // Exibir mensagem de erro
-        return; // Retornar da função
+        return;  // Retornar ao chamador
     }
 
-    printf("Digite o ID da tarefa: ");  // Solicitar ao usuário o ID da tarefa
-    scanf("%d", &tarefa->id);   // Ler o ID da tarefa
-    limparBuffer(); // Limpar o buffer de entrada
+    int idValido = 0;
+    while (!idValido) {
+        printf("Digite o ID da tarefa: ");  // Solicitar o ID da tarefa ao usuário
+        scanf("%d", &tarefa->id);   // Ler o ID da tarefa
+        limparBuffer();  // Limpar o buffer de entrada
 
-    printf("Digite a descrição da tarefa: ");   // Solicitar ao usuário a descrição da tarefa
+        // Verificar se o ID já foi usado
+        if (verificarIDusado(q, tarefasRealizadas, nRealizadas, tarefa->id)) {  // Verificar se o ID já foi usado
+            printf("Erro: O ID já foi usado! Por favor, insira um ID diferente.\n");    // Exibir mensagem de erro
+            continue;  // Continuar o loop para solicitar um novo ID
+        }
+
+        idValido = 1;  // ID válido
+    }
+
+    printf("Digite a descrição da tarefa: ");   // Solicitar a descrição da tarefa ao usuário
     fgets(tarefa->descricao, DESC, stdin);  // Ler a descrição da tarefa
-    tarefa->descricao[strcspn(tarefa->descricao, "\n")] = 0; // Remove newline character
+    tarefa->descricao[strcspn(tarefa->descricao, "\n")] = 0;  // Remover o caractere de nova linha da descrição
 
-    printf("Digite a prioridade da tarefa (1 - alto, 0 - baixo): "); // Solicitar ao usuário a prioridade da tarefa
+    printf("Digite a prioridade da tarefa (1 - alto, 0 - baixo): ");  // Solicitar a prioridade da tarefa ao usuário
     scanf("%d", &tarefa->prioridade);   // Ler a prioridade da tarefa
-    limparBuffer(); // Limpar o buffer de entrada
+    limparBuffer();  // Limpar o buffer de entrada
 
-    //Para payload json
+    // Solicitar o tipo de tarefa ao usuário
     printf("Digite o tipo de tarefa:\n");
     printf("1-Copiar//colar\n");
     printf("2-Impressão\n");
     // printf("3-Registro\n");
     scanf("%d", &tarefa->tipo);
-    
+
     strcat(payload, "{\n\t");
     switch(tarefa->tipo) {
         case 1:
@@ -137,15 +151,16 @@ void criarTarefa(Tarefa *tarefa) {  // Função para criar uma nova tarefa
     strcpy(tarefa->payloadJSON, payload);   
     limparBuffer();
 
-    // Inicializar os campos de data e hora com a data/hora atual
-    time_t tempoAtual = time(NULL); // Obter o tempo atual
-    tarefa->dataCriacao = *localtime(&tempoAtual);   // Atribuir a data/hora atual à data de criação da tarefa
-    tarefa->dataConclusao = (struct tm){0}; // Tarefa ainda não concluída
+    // Obter a data e hora atuais
+    time_t tempoAtual = time(NULL);  // Obter o tempo atual
+    tarefa->dataCriacao = *localtime(&tempoAtual);   // Obter a data e hora local
+    tarefa->dataConclusao = (struct tm){0};  // Inicializar a data de conclusão como 0
 
-    tarefa->estado = 0; // Tarefa em espera
+    tarefa->estado = 0;  // Definir o estado da tarefa como "em espera"
 
     printf("Tarefa criada com sucesso!\n");   // Exibir mensagem de sucesso
 }
+
 
 void destruirTarefa(Tarefa *tarefa) {   // Função para liberar a memória alocada para uma tarefa
     free(tarefa->payloadJSON);  // Liberar a memória alocada para o payload JSON
@@ -350,7 +365,11 @@ void gerarRelatorio(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizada
 
 
 void buscarTarefaPorID(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas, int id) {
-    Node *temp = q->front;  // Criar um nó temporário para percorrer a fila de prioridade
+    // ordenar as tarefas realizadas por ID
+    quickSort(tarefasRealizadas, 0, nRealizadas - 1);
+
+    // procurar na fila de prioridade
+    Node *temp = q->front;  // Ponteiro para nó para percorrer a fila de prioridade
     while (temp != NULL) {  // Enquanto houver elementos na fila de prioridade
         if (temp->dados->id == id) {    // Verificar se o ID da tarefa corresponde ao ID fornecido
             printf("Tarefa encontrada na fila de prioridade:\n");   // Exibir mensagem de sucesso
@@ -358,37 +377,38 @@ void buscarTarefaPorID(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealiz
             printf("Descrição: %s\n", temp->dados->descricao);  // Exibir a descrição da tarefa
             printf("Prioridade: %d\n", temp->dados->prioridade);    // Exibir a prioridade da tarefa
             printf("Tipo: %d\n", temp->dados->tipo); // Exibir o tipo da tarefa
-            printf("Data Criação: ");
+            printf("Data Criação: ");   // Exibir a data de criação
             imprimirDataHora(&temp->dados->dataCriacao); // Exibir a data de criação
-            printf("\n");
-            printf("Data Conclusão: ");
+            printf("\n");   // Exibir uma nova linha
+            printf("Data Conclusão: "); // Exibir a data de conclusão
             imprimirDataHora(&temp->dados->dataConclusao); // Exibir a data de conclusão
-            printf("\n");
-            return;
+            printf("\n");   // Exibir uma nova linha
+            return; // Retornar ao chamador
         }
-        temp = temp->next;  // Avançar para o próximo nó
+        temp = temp->next;  // Avançar para o próximo nó na fila de prioridade
     }
 
-    // Se não encontrou na fila de prioridade, buscar no array de tarefas realizadas
-    for (int i = 0; i < nRealizadas; i++) {
-        if (tarefasRealizadas[i].id == id) {
+    // procurar nas tarefas realizadas
+    for (int i = 0; i < nRealizadas; i++) { // Percorrer o array de tarefas realizadas
+        if (tarefasRealizadas[i].id == id) {    // Verificar se o ID da tarefa corresponde ao ID fornecido
             printf("Tarefa encontrada nas tarefas realizadas:\n");  // Exibir mensagem de sucesso
             printf("ID: %d\n", tarefasRealizadas[i].id);    // Exibir o ID da tarefa
             printf("Descrição: %s\n", tarefasRealizadas[i].descricao);  // Exibir a descrição da tarefa
             printf("Prioridade: %d\n", tarefasRealizadas[i].prioridade);    // Exibir a prioridade da tarefa
             printf("Tipo: %d\n", tarefasRealizadas[i].tipo); // Exibir o tipo da tarefa
-            printf("Data Criação: ");
+            printf("Data Criação: ");   // Exibir a data de criação
             imprimirDataHora(&tarefasRealizadas[i].dataCriacao); // Exibir a data de criação
-            printf("\n");
-            printf("Data Conclusão: ");
+            printf("\n");   // Exibir uma nova linha    
+            printf("Data Conclusão: "); // Exibir a data de conclusão
             imprimirDataHora(&tarefasRealizadas[i].dataConclusao); // Exibir a data de conclusão
-            printf("\n");
-            return;
+            printf("\n");   // Exibir uma nova linha
+            return; // Retornar ao chamador
         }
     }
 
-    printf("Tarefa com ID %d não encontrada.\n", id);   // Exibir mensagem de erro se não encontrou o ID
+    printf("Tarefa com ID %d não encontrada.\n", id);   // Exibir mensagem de erro
 }
+
 
 
 void listarTarefas(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas) {
@@ -441,7 +461,7 @@ void listarTarefas(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas
 
     // Se não houver tarefas (pendentes ou concluídas), imprime uma mensagem
     if (!temTarefasPendentes && nRealizadas == 0) {
-        printf("Nenhuma tarefa encontrada.\n");
+        printf("Nenhuma tarefa pendente encontrada.\n");
     }
 }
 
@@ -450,6 +470,28 @@ void imprimirDataHora(struct tm *data) {
            data->tm_year + 1900, data->tm_mon + 1, data->tm_mday,
            data->tm_hour, data->tm_min, data->tm_sec);
 }
+
+int verificarIDusado(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas, int id) {
+    Node *temp = q->front;  // criar um nó temporário para percorrer a fila de prioridade
+    while (temp != NULL) {  // enquanto houver elementos na fila de prioridade
+        if (temp->dados->id == id) {    // verificar se o ID da tarefa corresponde ao ID fornecido
+            printf("ID já utilizado na fila de prioridade!\n");   // exibir mensagem de erro
+            return 1;  // ID ja utilizado
+        }
+        temp = temp->next;  // sair para o próximo nó na fila de prioridade
+    }
+
+    // verificar se o ID foi usado nas tarefas realizadas
+    for (int i = 0; i < nRealizadas; i++) { // percorrer o array de tarefas realizadas
+        if (tarefasRealizadas[i].id == id) {    //verificar se o ID da tarefa corresponde ao ID fornecido
+            printf("ID já utilizado nas tarefas realizadas!\n");  // exibir mensagem de erro
+            return 1;  // ID já utilizado
+        }
+    }
+
+    return 0;  // ID nao utilizado
+}
+
 
 int menu()
 {
@@ -468,6 +510,45 @@ int menu()
         limparBuffer(); // Limpar o buffer de entrada
         return choice;
 }
+
+
+void swap(Tarefa *a, Tarefa *b) {   // Função para trocar duas tarefas
+    Tarefa temp = *a;   // Variável temporária para armazenar a tarefa a
+    *a = *b;    // Atribuir a tarefa b à tarefa a
+    *b = temp;  // Atribuir a tarefa temporária à tarefa b
+}
+
+int partition(Tarefa tarefas[], int low, int high) {    // Função para particionar o array de tarefas
+    int pivot = tarefas[high].id;  // elemento pivô
+    int i = (low - 1);  // Índice do menor elemento
+
+    for (int j = low; j <= high - 1; j++) {  // Percorrer o array
+        // Se o elemento atual é menor ou igual ao pivô
+        if (tarefas[j].id <= pivot) {   // Verificar se o ID da tarefa é menor ou igual ao pivô
+            i++;  // Incrementar o índice do menor elemento
+            swap(&tarefas[i], &tarefas[j]); // Trocar os elementos
+        }
+    }
+    swap(&tarefas[i + 1], &tarefas[high]);  // Trocar os elementos
+    return (i + 1); // Retornar o índice do pivô
+}
+
+void quickSort(Tarefa tarefas[], int low, int high) {   // Função para ordenar o array de tarefas
+    if (low < high) {   // Verificar se o índice baixo é menor que o índice alto
+        // Obter o índice da partição
+        int pi = partition(tarefas, low, high);  // Obter o índice da partição
+
+        // Ordenar os elementos separadamente antes e depois da partição
+        quickSort(tarefas, low, pi - 1);    // Ordenar os elementos antes da partição
+        quickSort(tarefas, pi + 1, high);   // Ordenar os elementos depois da partição
+    }
+}
+
+
+
+
+
+
 int main() {    // Função principal
     int choice;
     setlocale(LC_ALL, "Portuguese");
@@ -489,7 +570,7 @@ int main() {    // Função principal
             case 1: {
                 // Criar tarefa
                 Tarefa* novaTarefa = (Tarefa*)malloc(sizeof(Tarefa));   // Alocar memória para uma nova tarefa
-                criarTarefa(novaTarefa);    // Criar a nova tarefa
+                criarTarefa(q, tarefasRealizadas, nRealizadas, novaTarefa);    // Criar a nova tarefa
                 enqueue(q, novaTarefa); // Adicionar a nova tarefa à fila de prioridade
                 pushLowPriorityTasks(lowPriorityStack, novaTarefa);  // Adicionar a nova tarefa à pilha de tarefas de baixa prioridade
                 break;  // Sair do switch
