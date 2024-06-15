@@ -9,6 +9,7 @@
 typedef struct Tarefa { // Estrutura de dados para armazenar informações de uma tarefa
     int id;
     char descricao[DESC];
+    int tipo;
     int prioridade; // 1: alto, 0: baixo, 2: médio
     struct tm dataCriacao;
     struct tm dataConclusao; 
@@ -34,7 +35,11 @@ typedef struct Stack {  // Estrutura de dados para armazenar a pilha
     StackNode* top;
 } Stack;
 
-// Function prototypes
+// Declaração de funções
+void gerarRelatorio(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas);
+void buscarTarefaPorID(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas, int id);
+void listarTarefas(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas);
+void imprimirDataHora(struct tm *data);
 int menu();
 void criarTarefa(Tarefa *tarefa);
 void destruirTarefa(Tarefa *tarefa);
@@ -47,12 +52,16 @@ void push(Stack* stack, Tarefa* tarefa);
 Tarefa* pop(Stack* stack);
 void freeStack(Stack* stack);
 void pushLowPriorityTasks(Stack* stack, Tarefa* tarefa);
-void salvarTarefasEmFicheiro(Tarefa *tarefasRealizadas, int nRealizadas, char *ficheiroSaida);
-void carregarTarefasDoFicheiro(PriorityQueue *q, Stack *lowPriorityStack, const char *ficheiroEntrada);
-void buscarTarefaPorID(PriorityQueue *q, int id);
-void listarTarefas(PriorityQueue *q);
+void salvarTarefasEmFicheiro(Tarefa *tarefasRealizadas, int nRealizadas);
+void carregarTarefasDoFicheiro(PriorityQueue *q, Stack *lowPriorityStack);
+
 
 void criarTarefa(Tarefa *tarefa) {  // Função para criar uma nova tarefa
+
+    int numeroCop;
+    char nome[100], novonome[100], caminho[100], cor[15], NomImpress[100];
+    char payload[1000] = "";
+
     if (!tarefa) {  // Verificar se a tarefa foi alocada corretamente
         printf("Erro ao alocar memória para a tarefa!\n");  // Exibir mensagem de erro
         return; // Retornar da função
@@ -66,24 +75,74 @@ void criarTarefa(Tarefa *tarefa) {  // Função para criar uma nova tarefa
     fgets(tarefa->descricao, DESC, stdin);  // Ler a descrição da tarefa
     tarefa->descricao[strcspn(tarefa->descricao, "\n")] = 0; // Remove newline character
 
-    printf("Digite a prioridade da tarefa (1 - alto, 0 - baixo, 2 - médio): "); // Solicitar ao usuário a prioridade da tarefa
+    printf("Digite a prioridade da tarefa (1 - alto, 0 - baixo): "); // Solicitar ao usuário a prioridade da tarefa
     scanf("%d", &tarefa->prioridade);   // Ler a prioridade da tarefa
     limparBuffer(); // Limpar o buffer de entrada
 
+    //Para payload json
+    printf("Digite o tipo de tarefa:\n");
+    printf("1-Copiar//colar\n");
+    printf("2-Impressão\n");
+    // printf("3-Registro\n");
+    scanf("%d", &tarefa->tipo);
+    
+    strcat(payload, "{\n\t");
+    switch(tarefa->tipo) {
+        case 1:
+            printf("Nome do documento: ");
+            scanf("%s", nome);
+            strcat(payload, "\"Nome\": \"");
+            strcat(payload, nome);
+            strcat(payload, "\",\n\t");
+
+            printf("Nome do novo documento: ");
+            scanf("%s", novonome);
+            strcat(payload, "\"Novo.nome\": \"");
+            strcat(payload, novonome);
+            strcat(payload, "\",\n\t");
+
+            printf("Local: ");
+            scanf("%s", caminho);
+            strcat(payload, "\"Local\": \"");
+            strcat(payload, caminho);
+            strcat(payload, "\",\n\t");
+            break;
+
+        case 2:
+            printf("Número de cópias: ");
+            scanf("%d", &numeroCop);
+            strcat(payload, "\"Numero.de.copias\": ");
+            char numeroCopStr[10];
+            sprintf(numeroCopStr, "%d", numeroCop);
+            strcat(payload, numeroCopStr);
+            strcat(payload, ",\n\t");
+
+            printf("Cor: ");
+            scanf("%s", cor);
+            strcat(payload, "\"Cor\": \"");
+            strcat(payload, cor);
+            strcat(payload, "\",\n\t");
+
+            printf("Nome impressora: ");
+            scanf("%s", NomImpress);
+            strcat(payload, "\"Nome.impressora\": \"");
+            strcat(payload, NomImpress);
+            strcat(payload, "\"\n\t");
+            break;
+    }
+    strcat(payload, "}");
+
+    printf("payload: %s\n", payload);
+    tarefa->payloadJSON = (char*)malloc(strlen(payload) + 1);
+    strcpy(tarefa->payloadJSON, payload);   
+    limparBuffer();
+
     // Inicializar os campos de data e hora com a data/hora atual
     time_t tempoAtual = time(NULL); // Obter o tempo atual
-    tarefa->dataCriacao = *localtime(&tempoAtual);;   // Atribuir a data/hora atual à data de criação da tarefa
-
+    tarefa->dataCriacao = *localtime(&tempoAtual);   // Atribuir a data/hora atual à data de criação da tarefa
     tarefa->dataConclusao = (struct tm){0}; // Tarefa ainda não concluída
 
     tarefa->estado = 0; // Tarefa em espera
-
-    // Alocar memória e solicitar o payload JSON ao usuário
-    printf("Digite o payload JSON da tarefa: ");    // Solicitar ao usuário o payload JSON da tarefa
-    char buffer[1024];      // Buffer para armazenar a entrada do usuário
-    fgets(buffer, sizeof(buffer), stdin);   // Ler a entrada do usuário
-    tarefa->payloadJSON = (char*)malloc(strlen(buffer) + 1);    // Alocar memória para o payload JSON
-    strcpy(tarefa->payloadJSON, buffer);    // Copiar o payload JSON para a estrutura de dados da tarefa
 
     printf("Tarefa criada com sucesso!\n");   // Exibir mensagem de sucesso
 }
@@ -191,85 +250,207 @@ void pushLowPriorityTasks(Stack* stack, Tarefa* tarefa) {   // Função para adi
     }
 }
 
-void salvarTarefasEmFicheiro(Tarefa *tarefasRealizadas, int nRealizadas, char *ficheiroSaida) { // Função para salvar as tarefas realizadas em um ficheiro
-    FILE *fp = fopen(ficheiroSaida, "w");   // Abrir o ficheiro para escrita
-    if (fp != NULL) {   // Verificar se o ficheiro foi aberto corretamente
-    printf("sendo realizado");
-        for (int i = 0; i < nRealizadas; i++) { // Percorrer as tarefas realizadas
-            Tarefa *tarefa = &tarefasRealizadas[i]; // Obter a tarefa atual
-            fprintf(fp, "ID: %d\n", tarefa->id);    // Escrever o ID da tarefa no ficheiro
-            fprintf(fp, "Descrição: %s\n", tarefa->descricao);  // Escrever a descrição da tarefa no ficheiro
-            fprintf(fp, "Prioridade: %d\n", tarefa->prioridade);    // Escrever a prioridade da tarefa no ficheiro
-    //        fprintf(fp, "Data criação: %d\n", tarefa->prioridade);    // Escrever a prioridade da tarefa no ficheiro
-            // Escrever outros campos da tarefa
-            fprintf(fp, "\n");  // Escrever uma linha em branco
+void salvarTarefasEmFicheiro(Tarefa *tarefasRealizadas, int nRealizadas) {
+    FILE *fp = fopen("tarefas.txt", "w");   // Abrir o ficheiro para escrita
+    if (fp != NULL) {
+        for (int i = 0; i < nRealizadas; i++) {
+            Tarefa *tarefa = &tarefasRealizadas[i];
+            fprintf(fp, "%d;%s;%d;%d;%d-%d-%d;%d:%d:%d;%d;%d-%d-%d;%d:%d:%d\n",
+                tarefa->id, tarefa->descricao, tarefa->prioridade, tarefa->tipo,
+                tarefa->dataCriacao.tm_year + 1900, tarefa->dataCriacao.tm_mon + 1, tarefa->dataCriacao.tm_mday,
+                tarefa->dataCriacao.tm_hour, tarefa->dataCriacao.tm_min, tarefa->dataCriacao.tm_sec,
+                tarefa->estado,
+                tarefa->dataConclusao.tm_year + 1900, tarefa->dataConclusao.tm_mon + 1, tarefa->dataConclusao.tm_mday,
+                tarefa->dataConclusao.tm_hour, tarefa->dataConclusao.tm_min, tarefa->dataConclusao.tm_sec);
         }
-        fclose(fp); // Fechar o ficheiro
-        printf("Tarefas salvas com sucesso!\n");    // Exibir mensagem de sucesso
-    } else {    // Se houver um erro ao abrir o ficheiro
-        printf("Erro ao abrir o arquivo para salvar as tarefas!\n");    // Exibir mensagem de erro
+        fclose(fp);
+        printf("Tarefas salvas com sucesso!\n");
+    } else {
+        printf("Erro ao abrir o arquivo para salvar as tarefas!\n");
     }
 }
 
-void carregarTarefasDoFicheiro(PriorityQueue *q, Stack *lowPriorityStack, const char *ficheiroEntrada) {    // Função para carregar as tarefas de um ficheiro
-    FILE *fp = fopen(ficheiroEntrada, "r"); // Abrir o ficheiro para leitura
-    if (fp != NULL) {   // Verificar se o ficheiro foi aberto corretamente
-        while (!feof(fp)) { // Enquanto não for o final do ficheiro
+void carregarTarefasDoFicheiro(PriorityQueue *q, Stack *lowPriorityStack) {
+    FILE *fp = fopen("tarefas.txt", "r"); // Abrir o ficheiro para leitura
+    if (fp != NULL) {
+        char linha[2048];
+        while (fgets(linha, sizeof(linha), fp)) { // Enquanto não for o final do ficheiro
             Tarefa *tarefa = (Tarefa*)malloc(sizeof(Tarefa));   // Alocar memória para uma nova tarefa
-            if (fscanf(fp, "ID: %d\n", &tarefa->id) != 1) break;    // Ler o ID da tarefa
-            fscanf(fp, "Descrição: %[^\n]\n", tarefa->descricao);   // Ler a descrição da tarefa
-            fscanf(fp, "Prioridade: %d\n", &tarefa->prioridade);    // Ler a prioridade da tarefa
-            // Ler outros campos da tarefa se necessário
+            tarefa->payloadJSON = (char*)malloc(1024);
 
-            // Inicializar outros campos da tarefa
-            time_t tempoAtual = time(NULL); // Obter o tempo atual
-            tarefa->dataCriacao = *localtime(&tempoAtual);        // Atribuir a data/hora atual à data de criação da tarefa
+            sscanf(linha, "%d;%299[^;];%d;%d;%d-%d-%d;%d:%d:%d;%d;%d-%d-%d;%d:%d:%d",
+                &tarefa->id, tarefa->descricao, &tarefa->prioridade, &tarefa->tipo,
+                &tarefa->dataCriacao.tm_year, &tarefa->dataCriacao.tm_mon, &tarefa->dataCriacao.tm_mday,
+                &tarefa->dataCriacao.tm_hour, &tarefa->dataCriacao.tm_min, &tarefa->dataCriacao.tm_sec,
+                &tarefa->estado,
+                &tarefa->dataConclusao.tm_year, &tarefa->dataConclusao.tm_mon, &tarefa->dataConclusao.tm_mday,
+                &tarefa->dataConclusao.tm_hour, &tarefa->dataConclusao.tm_min, &tarefa->dataConclusao.tm_sec);
 
-            tarefa->dataConclusao = (struct tm){0};  // Tarefa ainda não concluída
-
-            tarefa->estado = 0; // Tarefa em espera
+            tarefa->dataCriacao.tm_year -= 1900;
+            tarefa->dataCriacao.tm_mon -= 1;
+            tarefa->dataConclusao.tm_year -= 1900;
+            tarefa->dataConclusao.tm_mon -= 1;
 
             enqueue(q, tarefa); // Adicionar a tarefa à fila de prioridade
             pushLowPriorityTasks(lowPriorityStack, tarefa);   // Adicionar a tarefa à pilha de tarefas de baixa prioridade
         }
-        fclose(fp); // Fechar o ficheiro
-        printf("Tarefas carregadas com sucesso!\n");    // Exibir mensagem de sucesso
-    } else {    // Se houver um erro ao abrir o ficheiro
-        printf("Erro ao abrir o arquivo para carregar as tarefas!\n");  // Exibir mensagem de erro
+        fclose(fp);
+        printf("Tarefas carregadas com sucesso!\n");
+    } else {
+        printf("Erro ao abrir o arquivo para carregar as tarefas!\n");
     }
 }
 
-void buscarTarefaPorID(PriorityQueue *q, int id) {  // Função para buscar uma tarefa por ID
-    Node *temp = q->front;  // Criar um nó temporário para percorrer a fila
-    while (temp != NULL) {  // Enquanto houver elementos na fila
+void gerarRelatorio(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas) {
+    FILE *fp = fopen("relatorio.txt", "w");   // Abrir o ficheiro para escrita
+    if (fp == NULL) {
+        printf("Erro ao abrir o arquivo para gerar o relatório!\n");
+        return;
+    }
+
+    // Escrever tarefas pendentes da fila de prioridade
+    Node *temp = q->front;
+    fprintf(fp, "Tarefas Pendentes:\n");
+    while (temp != NULL) {
+        Tarefa *tarefa = temp->dados;
+        fprintf(fp, "ID: %d\n", tarefa->id);
+        fprintf(fp, "Descrição: %s\n", tarefa->descricao);
+        fprintf(fp, "Prioridade: %d\n", tarefa->prioridade);
+        fprintf(fp, "Tipo: %d\n", tarefa->tipo);
+        fprintf(fp, "Data de Criação: %04d-%02d-%02d %02d:%02d:%02d\n",
+                tarefa->dataCriacao.tm_year + 1900, tarefa->dataCriacao.tm_mon + 1, tarefa->dataCriacao.tm_mday,
+                tarefa->dataCriacao.tm_hour, tarefa->dataCriacao.tm_min, tarefa->dataCriacao.tm_sec);
+        fprintf(fp, "Estado: %d\n", tarefa->estado);
+        fprintf(fp, "Payload JSON: %s\n\n", tarefa->payloadJSON);
+        temp = temp->next;
+    }
+
+    // Escrever tarefas realizadas
+    fprintf(fp, "Tarefas Realizadas:\n");
+    for (int i = 0; i < nRealizadas; i++) {
+        Tarefa *tarefa = &tarefasRealizadas[i];
+        fprintf(fp, "ID: %d\n", tarefa->id);
+        fprintf(fp, "Descrição: %s\n", tarefa->descricao);
+        fprintf(fp, "Prioridade: %d\n", tarefa->prioridade);
+        fprintf(fp, "Tipo: %d\n", tarefa->tipo);
+        fprintf(fp, "Data de Criação: %04d-%02d-%02d %02d:%02d:%02d\n",
+                tarefa->dataCriacao.tm_year + 1900, tarefa->dataCriacao.tm_mon + 1, tarefa->dataCriacao.tm_mday,
+                tarefa->dataCriacao.tm_hour, tarefa->dataCriacao.tm_min, tarefa->dataCriacao.tm_sec);
+        fprintf(fp, "Data de Conclusão: %04d-%02d-%02d %02d:%02d:%02d\n",
+                tarefa->dataConclusao.tm_year + 1900, tarefa->dataConclusao.tm_mon + 1, tarefa->dataConclusao.tm_mday,
+                tarefa->dataConclusao.tm_hour, tarefa->dataConclusao.tm_min, tarefa->dataConclusao.tm_sec);
+        fprintf(fp, "Estado: %d\n", tarefa->estado);
+        fprintf(fp, "Payload JSON: %s\n\n", tarefa->payloadJSON);
+    }
+
+    fclose(fp);
+    printf("Relatório gerado com sucesso em 'relatorio.txt'!\n");
+}
+
+
+
+void buscarTarefaPorID(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas, int id) {
+    Node *temp = q->front;  // Criar um nó temporário para percorrer a fila de prioridade
+    while (temp != NULL) {  // Enquanto houver elementos na fila de prioridade
         if (temp->dados->id == id) {    // Verificar se o ID da tarefa corresponde ao ID fornecido
-            printf("Tarefa encontrada:\n");   // Exibir mensagem de sucesso
+            printf("Tarefa encontrada na fila de prioridade:\n");   // Exibir mensagem de sucesso
             printf("ID: %d\n", temp->dados->id);    // Exibir o ID da tarefa
             printf("Descrição: %s\n", temp->dados->descricao);  // Exibir a descrição da tarefa
             printf("Prioridade: %d\n", temp->dados->prioridade);    // Exibir a prioridade da tarefa
-            // Exibir outros campos da tarefa
+            printf("Tipo: %d\n", temp->dados->tipo); // Exibir o tipo da tarefa
+            printf("Data Criação: ");
+            imprimirDataHora(&temp->dados->dataCriacao); // Exibir a data de criação
+            printf("\n");
+            printf("Data Conclusão: ");
+            imprimirDataHora(&temp->dados->dataConclusao); // Exibir a data de conclusão
+            printf("\n");
             return;
         }
         temp = temp->next;  // Avançar para o próximo nó
     }
-    printf("Tarefa com ID %d não encontrada.\n", id);   // Exibir mensagem de erro
+
+    // Se não encontrou na fila de prioridade, buscar no array de tarefas realizadas
+    for (int i = 0; i < nRealizadas; i++) {
+        if (tarefasRealizadas[i].id == id) {
+            printf("Tarefa encontrada nas tarefas realizadas:\n");  // Exibir mensagem de sucesso
+            printf("ID: %d\n", tarefasRealizadas[i].id);    // Exibir o ID da tarefa
+            printf("Descrição: %s\n", tarefasRealizadas[i].descricao);  // Exibir a descrição da tarefa
+            printf("Prioridade: %d\n", tarefasRealizadas[i].prioridade);    // Exibir a prioridade da tarefa
+            printf("Tipo: %d\n", tarefasRealizadas[i].tipo); // Exibir o tipo da tarefa
+            printf("Data Criação: ");
+            imprimirDataHora(&tarefasRealizadas[i].dataCriacao); // Exibir a data de criação
+            printf("\n");
+            printf("Data Conclusão: ");
+            imprimirDataHora(&tarefasRealizadas[i].dataConclusao); // Exibir a data de conclusão
+            printf("\n");
+            return;
+        }
+    }
+
+    printf("Tarefa com ID %d não encontrada.\n", id);   // Exibir mensagem de erro se não encontrou o ID
 }
 
-void listarTarefas(PriorityQueue *q) {  // Função para listar as tarefas na fila de prioridade
-    Node *temp = q->front;  // Criar um nó temporário para percorrer a fila
-    if (!temp) {    // Verificar se a fila está vazia
-        printf("Nenhuma tarefa na fila.\n");    // Exibir mensagem de erro
-        return; // Retornar da função
+
+void listarTarefas(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas) {
+    Node *temp = q->front;  // Ponteiro para nó para percorrer a fila de prioridade
+    int temTarefasPendentes = 0;  // Flag para verificar se há tarefas pendentes
+
+    // Percorre a fila de prioridade
+    while (temp != NULL) {
+        Tarefa *tarefa = temp->dados;
+        printf("ID: %d\n", tarefa->id);    // Imprime o ID da tarefa
+        printf("Descrição: %s\n", tarefa->descricao);  // Imprime a descrição da tarefa
+        printf("Prioridade: %d\n", tarefa->prioridade);    // Imprime a prioridade da tarefa
+        printf("Tipo: %d\n", tarefa->tipo); // Imprime o tipo da tarefa
+        printf("Data de Criação: %04d-%02d-%02d %02d:%02d:%02d\n",
+               tarefa->dataCriacao.tm_year + 1900, tarefa->dataCriacao.tm_mon + 1, tarefa->dataCriacao.tm_mday,
+               tarefa->dataCriacao.tm_hour, tarefa->dataCriacao.tm_min, tarefa->dataCriacao.tm_sec); // Imprime a data de criação
+        if (tarefa->estado == 2) {  // Se a tarefa estiver concluída
+            printf("Data de Conclusão: %04d-%02d-%02d %02d:%02d:%02d\n",
+                   tarefa->dataConclusao.tm_year + 1900, tarefa->dataConclusao.tm_mon + 1, tarefa->dataConclusao.tm_mday,
+                   tarefa->dataConclusao.tm_hour, tarefa->dataConclusao.tm_min, tarefa->dataConclusao.tm_sec); // Imprime a data de conclusão
+        }
+        printf("Estado: %d\n", tarefa->estado); // Imprime o estado da tarefa
+        printf("Payload JSON: %s\n", tarefa->payloadJSON); // Imprime o payload JSON
+        printf("\n");   // Imprime uma linha em branco
+        temp = temp->next;  // Avança para o próximo nó na fila de prioridade
+        temTarefasPendentes = 1;  // Define a flag para indicar que há tarefas pendentes
     }
-    while (temp != NULL) {  // Enquanto houver elementos na fila
-        printf("ID: %d\n", temp->dados->id);    // Exibir o ID da tarefa
-        printf("Descrição: %s\n", temp->dados->descricao);  // Exibir a descrição da tarefa
-        printf("Prioridade: %d\n", temp->dados->prioridade);    // Exibir a prioridade da tarefa
-        // Exibir outros campos da tarefa
-        printf("\n");   // Exibir uma linha em branco
-        temp = temp->next;  // Avançar para o próximo nó
+
+    // Imprime uma linha separadora se houver tarefas pendentes e concluídas
+    if (temTarefasPendentes && nRealizadas > 0) {
+        printf("-------------------\n");
+    }
+
+    // Imprime as tarefas concluídas do array
+    for (int i = 0; i < nRealizadas; i++) {
+        printf("ID: %d\n", tarefasRealizadas[i].id);    // Imprime o ID da tarefa
+        printf("Descrição: %s\n", tarefasRealizadas[i].descricao);  // Imprime a descrição da tarefa
+        printf("Prioridade: %d\n", tarefasRealizadas[i].prioridade);    // Imprime a prioridade da tarefa
+        printf("Tipo: %d\n", tarefasRealizadas[i].tipo); // Imprime o tipo da tarefa
+        printf("Data de Criação: %04d-%02d-%02d %02d:%02d:%02d\n",
+               tarefasRealizadas[i].dataCriacao.tm_year + 1900, tarefasRealizadas[i].dataCriacao.tm_mon + 1, tarefasRealizadas[i].dataCriacao.tm_mday,
+               tarefasRealizadas[i].dataCriacao.tm_hour, tarefasRealizadas[i].dataCriacao.tm_min, tarefasRealizadas[i].dataCriacao.tm_sec); // Imprime a data de criação
+        printf("Data de Conclusão: %04d-%02d-%02d %02d:%02d:%02d\n",
+               tarefasRealizadas[i].dataConclusao.tm_year + 1900, tarefasRealizadas[i].dataConclusao.tm_mon + 1, tarefasRealizadas[i].dataConclusao.tm_mday,
+               tarefasRealizadas[i].dataConclusao.tm_hour, tarefasRealizadas[i].dataConclusao.tm_min, tarefasRealizadas[i].dataConclusao.tm_sec); // Imprime a data de conclusão
+        printf("Estado: %d\n", tarefasRealizadas[i].estado); // Imprime o estado da tarefa
+        printf("Payload JSON: %s\n", tarefasRealizadas[i].payloadJSON); // Imprime o payload JSON
+        printf("\n");   // Imprime uma linha em branco
+    }
+
+    // Se não houver tarefas (pendentes ou concluídas), imprime uma mensagem
+    if (!temTarefasPendentes && nRealizadas == 0) {
+        printf("Nenhuma tarefa encontrada.\n");
     }
 }
+
+void imprimirDataHora(struct tm *data) {
+    printf("%04d-%02d-%02d %02d:%02d:%02d",
+           data->tm_year + 1900, data->tm_mon + 1, data->tm_mday,
+           data->tm_hour, data->tm_min, data->tm_sec);
+}
+
 int menu()
 {
         int choice; // Variável para armazenar a escolha do usuário
@@ -339,33 +520,25 @@ int main() {    // Função principal
                 printf("Digite o ID da tarefa a buscar: "); // Solicitar ao usuário o ID da tarefa
                 scanf("%d", &id);   // Ler o ID da tarefa
                 limparBuffer(); // Limpar o buffer de entrada
-                buscarTarefaPorID(q, id);   // Buscar a tarefa na fila de prioridade
+                buscarTarefaPorID(q, tarefasRealizadas, nRealizadas, id);   // Buscar a tarefa na fila de prioridade e no array de tarefas realizadas
                 break;  // Sair do switch
             }
             case 4: {
                 // Listar tarefas
-                listarTarefas(q);   // Listar as tarefas na fila de prioridade
+                listarTarefas(q, tarefasRealizadas, nRealizadas);   // Listar as tarefas na fila de prioridade
                 break;  // Sair do switch
             }
             case 5:
-                // Relatório
-                printf("Tarefas realizadas:\n");    // Exibir o título do relatório
-                for (int i = 0; i < nRealizadas; i++) { // Percorrer as tarefas realizadas
-                    printf("ID: %d\n", tarefasRealizadas[i].id);    // Exibir o ID da tarefa
-                    printf("Descrição: %s\n", tarefasRealizadas[i].descricao);  // Exibir a descrição da tarefa
-                    printf("Prioridade: %d\n", tarefasRealizadas[i].prioridade);    // Exibir a prioridade da tarefa
-                    // Exibir outros campos da tarefa se necessário
-                    printf("\n");   // Exibir uma linha em branco
-                }
+               gerarRelatorio(q, tarefasRealizadas, nRealizadas);
                 break;
             case 6: {
                 // Salvar tarefas em ficheiro
-                salvarTarefasEmFicheiro(tarefasRealizadas, nRealizadas, "tarefas.txt");   // Salvar as tarefas realizadas em um ficheiro
+                salvarTarefasEmFicheiro(tarefasRealizadas, nRealizadas);   // Salvar as tarefas realizadas em um ficheiro
                 break;  // Sair do switch
             }
             case 7:
                 // Carregar tarefas do ficheiro
-                carregarTarefasDoFicheiro(q, lowPriorityStack, "tarefas.txt");  // Carregar as tarefas do ficheiro
+                carregarTarefasDoFicheiro(q, lowPriorityStack);  // Carregar as tarefas do ficheiro
                 break;  // Sair do switch
             case 0:
                 printf("Saindo do programa...\n");  // Exibir mensagem de saída
