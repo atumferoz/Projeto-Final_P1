@@ -3,7 +3,6 @@
 #include <string.h>
 #include <time.h>
 #include <locale.h>
-#include <ctype.h>
 
 #define DESC 300
 
@@ -59,48 +58,32 @@ int verificarIDusado(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizad
 void swap(Tarefa *a, Tarefa *b);
 int partition(Tarefa tarefas[], int low, int high);
 void quickSort(Tarefa tarefas[], int low, int high);
-void executarTarefa(Tarefa tarefasRealizadas[], int nRealizadas, PriorityQueue *q);
-int allDigits(const char *str);
 
-
-int allDigits(const char *str) {
-    while (*str) {
-        if (!isdigit(*str))
-            return 0;
-        str++;
-    }
-    return 1;
-}
 
 void criarTarefa(PriorityQueue *q, Tarefa *tarefasRealizadas, int nRealizadas, Tarefa *tarefa) {
     int numeroCop;
     char nome[100], novonome[100], caminho[100], cor[15], NomImpress[100];
     char payload[1000] = "";
-    char idInput[10];
 
     if (!tarefa) {  // verificar se a tarefa foi alocada corretamente
         printf("Erro ao alocar memória para a tarefa!\n");  // Exibir mensagem de erro
         return;  // Retornar ao chamador
     }
 
-     int idValido = 0;   // Variável para verificar se o ID é válido
-do {
-    printf("Digite o ID da tarefa (5 dígitos): ");
-    fgets(idInput, sizeof(idInput), stdin);
-    idInput[strcspn(idInput, "\n")] = '\0'; 
+    int idValido = 0;
+    while (!idValido) {
+        printf("Digite o ID da tarefa: ");  // Solicitar o ID da tarefa ao usuário
+        scanf("%d", &tarefa->id);   // Ler o ID da tarefa
+        limparBuffer();  // Limpar o buffer de entrada
 
-    // verificar se o ID é válido
-    if (!allDigits(idInput) || strlen(idInput) != 5) {
-        printf("Erro: O ID deve ter 5 dígitos!\n");
-    } else {
-        tarefa->id = atoi(idInput); // converter a string para inteiro
-        if (verificarIDusado(q, tarefasRealizadas, nRealizadas, tarefa->id)) {
-            printf("Erro: O ID já foi utilizado! Por favor, insira um ID diferente.\n");
-        } else {
-            idValido = 1;
+        // Verificar se o ID já foi usado
+        if (verificarIDusado(q, tarefasRealizadas, nRealizadas, tarefa->id)) {  // Verificar se o ID já foi usado
+            printf("Erro: O ID já foi usado! Por favor, insira um ID diferente.\n");    // Exibir mensagem de erro
+            continue;  // Continuar o loop para solicitar um novo ID
         }
+
+        idValido = 1;  // ID válido
     }
-} while (!idValido);
 
     printf("Digite a descrição da tarefa: ");   // Solicitar a descrição da tarefa ao usuário
     fgets(tarefa->descricao, DESC, stdin);  // Ler a descrição da tarefa
@@ -374,22 +357,12 @@ void gerarRelatorio(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizada
         Tarefa *tarefa = temp->dados;
         fprintf(fp, "ID: %d\n", tarefa->id);
         fprintf(fp, "Descrição: %s\n", tarefa->descricao);
-        fprintf(fp, "Prioridade(1-Alto 0-Baixo): %d\n", tarefa->prioridade);
-        /*if (tarefa->prioridade == 1) { // Verificar a prioridade da tarefa
-            fprintf(fp, "Prioridade: Alto\n");  // Escrever a prioridade da tarefa
-        } else if (tarefa->prioridade == 0) {   // Verificar a prioridade da tarefa
-            fprintf(fp, "Prioridade: Baixo\n"); // Escrever a prioridade da tarefa
-        }*/
+        fprintf(fp, "Prioridade: %d\n", tarefa->prioridade);
         fprintf(fp, "Tipo: %d\n", tarefa->tipo);
         fprintf(fp, "Data de Criação: %04d-%02d-%02d %02d:%02d:%02d\n",
                 tarefa->dataCriacao.tm_year + 1900, tarefa->dataCriacao.tm_mon + 1, tarefa->dataCriacao.tm_mday,
                 tarefa->dataCriacao.tm_hour, tarefa->dataCriacao.tm_min, tarefa->dataCriacao.tm_sec);
         fprintf(fp, "Estado: %d\n", tarefa->estado);
-        /* if (tarefa->estado==2) { 
-            fprintf(fp, "Estado realizado com Sucesso!\n");   
-        } else {  
-            fprintf(fp, "Estado em espera...\n"); 
-        }*/
         fprintf(fp, "Payload JSON: %s\n\n", tarefa->payloadJSON);
         temp = temp->next;
     }
@@ -401,11 +374,6 @@ void gerarRelatorio(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizada
         fprintf(fp, "ID: %d\n", tarefa->id);
         fprintf(fp, "Descrição: %s\n", tarefa->descricao);
         fprintf(fp, "Prioridade: %d\n", tarefa->prioridade);
-        /*if (tarefa->prioridade == 1) { // Verificar a prioridade da tarefa
-            fprintf(fp, "Prioridade: Alto\n");  // Escrever a prioridade da tarefa
-        } else if (tarefa->prioridade == 0) {   // Verificar a prioridade da tarefa
-            fprintf(fp, "Prioridade: Baixo\n"); // Escrever a prioridade da tarefa
-        }*/
         fprintf(fp, "Tipo: %d\n", tarefa->tipo);
         fprintf(fp, "Data de Criação: %04d-%02d-%02d %02d:%02d:%02d\n",
                 tarefa->dataCriacao.tm_year + 1900, tarefa->dataCriacao.tm_mon + 1, tarefa->dataCriacao.tm_mday,
@@ -414,11 +382,6 @@ void gerarRelatorio(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizada
                 tarefa->dataConclusao.tm_year + 1900, tarefa->dataConclusao.tm_mon + 1, tarefa->dataConclusao.tm_mday,
                 tarefa->dataConclusao.tm_hour, tarefa->dataConclusao.tm_min, tarefa->dataConclusao.tm_sec);
         fprintf(fp, "Estado: %d\n", tarefa->estado);
-        /*if (tarefa->estado==2) { 
-            fprintf(fp, "Estado realizado com Sucesso!\n");   
-        } else {  
-            fprintf(fp, "Estado em espera...\n"); 
-        }*/
         fprintf(fp, "Payload JSON: %s\n\n", tarefa->payloadJSON);
     }
 
@@ -439,7 +402,7 @@ void buscarTarefaPorID(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealiz
             printf("Tarefa encontrada na fila de prioridade:\n");   // Exibir mensagem de sucesso
             printf("ID: %d\n", temp->dados->id);    // Exibir o ID da tarefa
             printf("Descrição: %s\n", temp->dados->descricao);  // Exibir a descrição da tarefa
-            printf("Prioridade(1-Alto 0-Baixo): %d\n", temp->dados->prioridade);    // Exibir a prioridade da tarefa
+            printf("Prioridade: %d\n", temp->dados->prioridade);    // Exibir a prioridade da tarefa
             printf("Tipo: %d\n", temp->dados->tipo); // Exibir o tipo da tarefa
             printf("Data Criação: ");   // Exibir a data de criação
             imprimirDataHora(&temp->dados->dataCriacao); // Exibir a data de criação
@@ -458,7 +421,7 @@ void buscarTarefaPorID(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealiz
             printf("Tarefa encontrada nas tarefas realizadas:\n");  // Exibir mensagem de sucesso
             printf("ID: %d\n", tarefasRealizadas[i].id);    // Exibir o ID da tarefa
             printf("Descrição: %s\n", tarefasRealizadas[i].descricao);  // Exibir a descrição da tarefa
-            printf("Prioridade(1-Alto 0-Baixo): %d\n", tarefasRealizadas[i].prioridade);    // Exibir a prioridade da tarefa
+            printf("Prioridade: %d\n", tarefasRealizadas[i].prioridade);    // Exibir a prioridade da tarefa
             printf("Tipo: %d\n", tarefasRealizadas[i].tipo); // Exibir o tipo da tarefa
             printf("Data Criação: ");   // Exibir a data de criação
             imprimirDataHora(&tarefasRealizadas[i].dataCriacao); // Exibir a data de criação
@@ -480,17 +443,11 @@ void listarTarefas(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas
     int temTarefasPendentes = 0;  // Flag para verificar se há tarefas pendentes
 
     // Percorre a fila de prioridade
-    printf("Tarefas Pendentes:\n");
     while (temp != NULL) {
         Tarefa *tarefa = temp->dados;
         printf("ID: %d\n", tarefa->id);    // Imprime o ID da tarefa
         printf("Descrição: %s\n", tarefa->descricao);  // Imprime a descrição da tarefa
-        printf("Prioridade(1-Alto 0-Baixo): %d\n", tarefa->prioridade);    // Imprime a prioridade da tarefa
-        /*if (tarefa->prioridade == 1) { // Verificar a prioridade da tarefa
-            printf("Prioridade: Alto\n");  // Imprimir a prioridade da tarefa
-        } else if (tarefa->prioridade == 0) {   // Verificar a prioridade da tarefa
-            printf("Prioridade: Baixo\n"); // Imprimir a prioridade da tarefa
-        }*/
+        printf("Prioridade: %d\n", tarefa->prioridade);    // Imprime a prioridade da tarefa
         printf("Tipo: %d\n", tarefa->tipo); // Imprime o tipo da tarefa
         printf("Data de Criação: %04d-%02d-%02d %02d:%02d:%02d\n",
                tarefa->dataCriacao.tm_year + 1900, tarefa->dataCriacao.tm_mon + 1, tarefa->dataCriacao.tm_mday,
@@ -500,7 +457,7 @@ void listarTarefas(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas
                    tarefa->dataConclusao.tm_year + 1900, tarefa->dataConclusao.tm_mon + 1, tarefa->dataConclusao.tm_mday,
                    tarefa->dataConclusao.tm_hour, tarefa->dataConclusao.tm_min, tarefa->dataConclusao.tm_sec); // Imprime a data de conclusão
         }
-        printf("Estado(em espera=0): %d\n", tarefa->estado); // Imprime o estado da tarefa
+        printf("Estado: %d\n", tarefa->estado); // Imprime o estado da tarefa
         printf("Payload JSON: %s\n", tarefa->payloadJSON); // Imprime o payload JSON
         printf("\n");   // Imprime uma linha em branco
         temp = temp->next;  // Avança para o próximo nó na fila de prioridade
@@ -509,19 +466,14 @@ void listarTarefas(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas
 
     // Imprime uma linha separadora se houver tarefas pendentes e concluídas
     if (temTarefasPendentes && nRealizadas > 0) {
-        printf("Tarefas Realizadas:\n");
+        printf("-------------------\n");
     }
 
     // Imprime as tarefas concluídas do array
     for (int i = 0; i < nRealizadas; i++) {
         printf("ID: %d\n", tarefasRealizadas[i].id);    // Imprime o ID da tarefa
         printf("Descrição: %s\n", tarefasRealizadas[i].descricao);  // Imprime a descrição da tarefa
-        printf("Prioridade(1-Alto 0-Baixo): %d\n", tarefasRealizadas[i].prioridade);    // Imprime a prioridade da tarefa
-        /*if (tarefasRealizadas[i].prioridade == 1) { // Verificar a prioridade da tarefa
-            printf("Prioridade: Alto\n");  // Imprimir a prioridade da tarefa
-        } else if (tarefasRealizadas[i].prioridade == 0) {   // Verificar a prioridade da tarefa
-            printf("Prioridade: Baixo\n"); // Imprimir a prioridade da tarefa
-        }*/
+        printf("Prioridade: %d\n", tarefasRealizadas[i].prioridade);    // Imprime a prioridade da tarefa
         printf("Tipo: %d\n", tarefasRealizadas[i].tipo); // Imprime o tipo da tarefa
         printf("Data de Criação: %04d-%02d-%02d %02d:%02d:%02d\n",
                tarefasRealizadas[i].dataCriacao.tm_year + 1900, tarefasRealizadas[i].dataCriacao.tm_mon + 1, tarefasRealizadas[i].dataCriacao.tm_mday,
@@ -529,12 +481,7 @@ void listarTarefas(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas
         printf("Data de Conclusão: %04d-%02d-%02d %02d:%02d:%02d\n",
                tarefasRealizadas[i].dataConclusao.tm_year + 1900, tarefasRealizadas[i].dataConclusao.tm_mon + 1, tarefasRealizadas[i].dataConclusao.tm_mday,
                tarefasRealizadas[i].dataConclusao.tm_hour, tarefasRealizadas[i].dataConclusao.tm_min, tarefasRealizadas[i].dataConclusao.tm_sec); // Imprime a data de conclusão
-        printf("Estado(sucesso=2): %d\n", tarefasRealizadas[i].estado); // Imprime o estado da tarefa
-         /*if (tarefasRealizadas[i].estado==2) { 
-            printf("Estado realizado com Sucesso!\n");   
-        } else if (tarefasRealizadas[i].estado == 0) {  
-            printf("Estado em espera...\n"); 
-        }*/
+        printf("Estado: %d\n", tarefasRealizadas[i].estado); // Imprime o estado da tarefa
         printf("Payload JSON: %s\n", tarefasRealizadas[i].payloadJSON); // Imprime o payload JSON
         printf("\n");   // Imprime uma linha em branco
     }
@@ -625,44 +572,7 @@ void quickSort(Tarefa tarefas[], int low, int high) {   // Função para ordenar
 }
 
 
-void executarTarefa(Tarefa tarefasRealizadas[], int nRealizadas, PriorityQueue *q)
-{
-    Tarefa* tarefa = dequeue(q);    // Remover a tarefa da fila de prioridade
-     if (tarefa != NULL) {   // Verificar se a tarefa foi removida com sucesso
-                    printf("Executando tarefa:\n");   // Exibir mensagem de execução
-                    printf("ID: %d\n", tarefa->id);   // Exibir o ID da tarefa
-                    printf("Descrição: %s\n", tarefa->descricao);   // Exibir a descrição da tarefa
-                    printf("Prioridade: %d\n", tarefa->prioridade); // Exibir a prioridade da tarefa
-                    // Atualizar o estado da tarefa
-                    tarefa->estado = 1; // Tarefa em execução
-                    // Executar a tarefa (simulação)
-                    // Conclui a tarefa
-                    tarefa->estado = 2; // Tarefa concluída
-                    time_t tempoAtual = time(NULL); // Obter o tempo atual
-                    tarefa->dataConclusao = *localtime(&tempoAtual);    // Atribuir a data/hora atual à data de conclusão da tarefa
-                    tarefasRealizadas[nRealizadas++] = *tarefa; // Adicionar a tarefa ao array de tarefas realizadas
-                    printf("Tarefa concluída.\n");  // Exibir mensagem de conclusão
-                }
-                else {  // Se não houver tarefas na fila de prioridade
-                    printf("Nenhuma tarefa na fila de prioridade para executar.\n"); // Exibir mensagem de erro
-                }
-}
 
-/*void voltarParaMenu() {
-    printf("Para voltar ao menu escreve EXIT\n"); // Exibir mensagem para pressionar Enter
-    getchar();  // Aguardar a entrada do usuário
-    limparBuffer(); // Limpar o buffer de entrada
-    char exit[5];   // Variável para armazenar a entrada do usuário
-    fgets(exit, 5, stdin);  // Ler a entrada do usuário
-    if (strcmp(exit, "EXIT") == 0) {    // Verificar se a entrada do usuário é "EXIT"
-        return; // Retornar ao chamador
-    }
-    else {  // Se a entrada do usuário não for "EXIT"
-        printf("Comando inválido!\n");  // Exibir mensagem de erro
-        voltarParaMenu();   // Chamar a função novamente
-    }
-
-}*/
 
 
 
@@ -694,7 +604,22 @@ int main() {    // Função principal
             }
             case 2: {
                 // Executar tarefa
-                executarTarefa(tarefasRealizadas, nRealizadas, q);   // Executar a tarefa
+                Tarefa* tarefa = dequeue(q);    // Remover a tarefa da fila de prioridade
+                if (tarefa != NULL) {   // Verificar se a tarefa foi removida com sucesso
+                    printf("Executando tarefa:\n");   // Exibir mensagem de execução
+                    printf("ID: %d\n", tarefa->id);   // Exibir o ID da tarefa
+                    printf("Descrição: %s\n", tarefa->descricao);   // Exibir a descrição da tarefa
+                    printf("Prioridade: %d\n", tarefa->prioridade); // Exibir a prioridade da tarefa
+                    // Atualizar o estado da tarefa
+                    tarefa->estado = 1; // Tarefa em execução
+                    // Executar a tarefa (simulação)
+                    // Conclui a tarefa
+                    tarefa->estado = 2; // Tarefa concluída
+                    time_t tempoAtual = time(NULL); // Obter o tempo atual
+                    tarefa->dataConclusao = *localtime(&tempoAtual);    // Atribuir a data/hora atual à data de conclusão da tarefa
+                    tarefasRealizadas[nRealizadas++] = *tarefa; // Adicionar a tarefa ao array de tarefas realizadas
+                    printf("Tarefa concluída.\n");  // Exibir mensagem de conclusão
+                }
                 break;  // Sair do switch
             }
             case 3: {
