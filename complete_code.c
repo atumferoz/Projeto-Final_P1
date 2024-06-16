@@ -10,7 +10,7 @@ typedef struct Tarefa { // Estrutura de dados para armazenar informações de um
     int id;
     char descricao[DESC];
     int tipo;
-    int prioridade; // 1: alto, 0: baixo, 2: médio
+    int prioridade; // 1: alto, 0: baixo
     struct tm dataCriacao;
     struct tm dataConclusao; 
     int estado; // 0: em espera, 1: em execução, 2: concluída, 3: falha
@@ -327,8 +327,11 @@ void carregarTarefasDoFicheiro(PriorityQueue *q, Stack *lowPriorityStack) {
                     *semicolon = '\0';
                 }
 
-                enqueue(q, tarefa); // Adicionar a tarefa à fila de prioridade
-                pushLowPriorityTasks(lowPriorityStack, tarefa);   // Adicionar a tarefa à pilha de tarefas de baixa prioridade
+                if (tarefa->prioridade == 0) {
+                    pushLowPriorityTasks(lowPriorityStack, tarefa);  // Adicionar tarefas de baixa prioridade à pilha
+                } else {
+                    enqueue(q, tarefa);  // Adicionar tarefas de alta prioridade à fila de prioridade
+                }
             }
         }
         fclose(fp);
@@ -517,23 +520,22 @@ int verificarIDusado(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizad
 }
 
 
-int menu() {
-    int choice;
-    printf("Menu:\n");
-    printf("1. Criar Tarefa\n");
-    printf("2. Listar Tarefas\n");
-    printf("3. Buscar Tarefa por ID\n");
-    printf("4. Gerar Relatório\n");
-    printf("5. Salvar Tarefas em Ficheiro\n");
-    printf("6. Carregar Tarefas do Ficheiro\n");
-    printf("0. Sair\n");
-    printf("7. Voltar\n");  // Option to go back
-
-    printf("Escolha uma opção: ");
-    scanf("%d", &choice);
-    limparBuffer();  // Clear input buffer
-
-    return choice;
+int menu()
+{
+        int choice; // Variável para armazenar a escolha do usuário
+        printf("Menu:\n");  // Exibir o menu
+        printf("1. Criar tarefa\n");
+        printf("2. Executar tarefa\n");
+        printf("3. Buscar tarefa por ID\n");
+        printf("4. Listar tarefas\n");
+        printf("5. Relatório\n");
+        printf("6. Salvar tarefas em ficheiro\n");
+        printf("7. Carregar tarefas do ficheiro\n");
+        printf("0. Sair\n");
+        printf("Escolha uma opção: ");
+        scanf("%d", &choice);
+        limparBuffer(); // Limpar o buffer de entrada
+        return choice;
 }
 
 
@@ -575,7 +577,7 @@ void quickSort(Tarefa tarefas[], int low, int high) {   // Função para ordenar
 
 
 int main() {    // Função principal
-    int choice=1;
+    int choice;
     setlocale(LC_ALL, "Portuguese");
     PriorityQueue* q = createQueue();   // Criar uma nova fila de prioridade
     Stack* lowPriorityStack = malloc(sizeof(Stack));    // Alocar memória para a pilha de tarefas de baixa prioridade
@@ -588,7 +590,7 @@ int main() {    // Função principal
     Tarefa tarefasRealizadas[300];  // Array para armazenar as tarefas realizadas
     int nRealizadas = 0;    // Contador para o número de tarefas realizadas
 
-    while (choice!=0) { // Loop infinito para exibir o menu
+    while (1) { // Loop infinito para exibir o menu
 
         choice = menu();
         switch (choice) {   // Verificar a escolha do usuário
@@ -647,16 +649,10 @@ int main() {    // Função principal
                 carregarTarefasDoFicheiro(q, lowPriorityStack);  // Carregar as tarefas do ficheiro
                 break;  // Sair do switch
             case 0:
-                // Sair do programa
                 printf("Saindo do programa...\n");  // Exibir mensagem de saída
                 freeQueue(q);   // Liberar a memória alocada para a fila de prioridade
                 freeStack(lowPriorityStack);    // Liberar a memória alocada para a pilha de tarefas de baixa prioridade
                 exit(0);    // Encerrar o programa
-            
-            case 8:
-                // Voltar
-                break;  // Sair do switch
-            
             default:
                 printf("Opção inválida!\n");    // Exibir mensagem de erro
         }
