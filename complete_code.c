@@ -4,6 +4,7 @@
 #include <time.h>
 #include <locale.h>
 #include <ctype.h>
+#include "jsmn.h"
 
 #define DESC 300
 
@@ -37,6 +38,8 @@ typedef struct Stack {  // Estrutura de dados para armazenar a pilha
 } Stack;
 
 // Declaração de funções
+static int jsoneq(const char *json, jsmntok_t *tok, const char *s);
+void imprimirPayloadJSON(const char *payloadJSON, int tipo);
 void gerarRelatorio(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas);
 void buscarTarefaPorID(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas, int id);
 void listarTarefas(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas);
@@ -59,7 +62,9 @@ int verificarIDusado(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizad
 void swap(Tarefa *a, Tarefa *b);
 int partition(Tarefa tarefas[], int low, int high);
 void quickSort(Tarefa tarefas[], int low, int high);
+void executarTarefa(Tarefa tarefasRealizadas[], int nRealizadas, PriorityQueue *q);
 int allDigits(const char *str);
+
 
 int allDigits(const char *str) {
     while (*str) {
@@ -75,7 +80,6 @@ void criarTarefa(PriorityQueue *q, Tarefa *tarefasRealizadas, int nRealizadas, T
     char nome[100], novonome[100], caminho[100], cor[15], NomImpress[100];
     char payload[1000] = "";
     char idInput[10];
-
 
     if (!tarefa) {  // verificar se a tarefa foi alocada corretamente
         printf("Erro ao alocar memória para a tarefa!\n");  // Exibir mensagem de erro
@@ -159,10 +163,13 @@ do {
             strcat(payload, NomImpress);
             strcat(payload, "\"\n\t");
             break;
+            default:
+            printf("Degite um número válido");
+            break;
     }
     strcat(payload, "}");
 
-    printf("payload: %s\n", payload);
+   // printf("payload: %s\n", payload);
     tarefa->payloadJSON = (char*)malloc(strlen(payload) + 1);
     strcpy(tarefa->payloadJSON, payload);   
     limparBuffer();
@@ -357,13 +364,131 @@ void carregarTarefasDoFicheiro(PriorityQueue *q, Stack *lowPriorityStack) {
     }
 }
 
+void imprimirPayloadJSON(const char *payloadJSON, int tipo) {
+    jsmn_parser parser;
+    int num_tokens = 256; // Aumentei o número de tokens
+    jsmntok_t tokens[num_tokens];
+    int r;
 
+    jsmn_init(&parser);
+    r = jsmn_parse(&parser, payloadJSON, strlen(payloadJSON), tokens, num_tokens);
+
+    if (r < 0) {
+        printf("Erro ao parsear o payload JSON. Código de erro: %d\n", r); // Imprime o código de erro
+        return;
+    }
+
+    if (r < 1 || tokens[0].type != JSMN_OBJECT) {
+        printf("O payload JSON não é um objeto válido.\n");
+        return;
+    }
+
+    // Identifica o tipo de tarefa e imprime as informações correspondentes
+    if (tipo == 1) {
+        for (int i = 1; i < r; i++) {
+            if (tokens[i].type == JSMN_STRING) {
+                if (jsoneq(payloadJSON, &tokens[i], "Nome") == 0) {
+                    printf("Nome: %.*s\n", tokens[i+1].end - tokens[i+1].start, payloadJSON + tokens[i+1].start);
+                    i++; // Pula para o próximo par chave-valor
+                } else if (jsoneq(payloadJSON, &tokens[i], "Novo.nome") == 0) {
+                    printf("Novo nome: %.*s\n", tokens[i+1].end - tokens[i+1].start, payloadJSON + tokens[i+1].start);
+                    i++; // Pula para o próximo par chave-valor
+                } else if (jsoneq(payloadJSON, &tokens[i], "Local") == 0) {
+                    printf("Local: %.*s\n", tokens[i+1].end - tokens[i+1].start, payloadJSON + tokens[i+1].start);
+                    i++; // Pula para o próximo par chave-valor
+                }
+            }
+        }
+    } else if (tipo == 2) {
+        for (int i = 1; i < r; i++) {
+            if (tokens[i].type == JSMN_STRING) {
+                if (jsoneq(payloadJSON, &tokens[i], "Numero.de.copias") == 0) {
+                    printf("Número de cópias: %.*s\n", tokens[i+1].end - tokens[i+1].start, payloadJSON + tokens[i+1].start);
+                    i++; // Pula para o próximo par chave-valor
+                } else if (jsoneq(payloadJSON, &tokens[i], "Cor") == 0) {
+                    printf("Cor: %.*s\n", tokens[i+1].end - tokens[i+1].start, payloadJSON + tokens[i+1].start);
+                    i++; // Pula para o próximo par chave-valor
+                } else if (jsoneq(payloadJSON, &tokens[i], "Nome.impressora") == 0) {
+                    printf("Nome impressora: %.*s\n", tokens[i+1].end - tokens[i+1].start, payloadJSON + tokens[i+1].start);
+                    i++; // Pula para o próximo par chave-valor
+                }
+            }
+        }
+    } else {
+        printf("Tipo de tarefa desconhecido ou não suportado.\n");
+    }
+}
+
+// Função auxiliar para comparar strings JSON
+static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
+    if (tok->type == JSMN_STRING &&
+        (int) strlen(s) == tok->end - tok->start &&
+        strncmp(json + tok->start, s, tok->end - tok->start) == 0) {
+        return 0;
+    }
+    return -1;
+}
 
 void gerarRelatorio(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas) {
     FILE *fp = fopen("relatorio.txt", "w");   // Abrir o ficheiro para escrita
     if (fp == NULL) {
         printf("Erro ao abrir o arquivo para gerar o relatório!\n");
         return;
+    }
+
+    // Função auxiliar para imprimir o payload JSON no arquivo
+    void imprimirPayloadJSONNoArquivo(FILE *fp, const char *payloadJSON, int tipo) {
+        jsmn_parser parser;
+        int num_tokens = 256; // Aumentei o número de tokens
+        jsmntok_t tokens[num_tokens];
+        int r;
+
+        jsmn_init(&parser);
+        r = jsmn_parse(&parser, payloadJSON, strlen(payloadJSON), tokens, num_tokens);
+
+        if (r < 0) {
+            fprintf(fp, "Erro ao parsear o payload JSON. Código de erro: %d\n", r); // Imprime o código de erro
+            return;
+        }
+
+        if (r < 1 || tokens[0].type != JSMN_OBJECT) {
+            fprintf(fp, "O payload JSON não é um objeto válido.\n");
+            return;
+        }
+
+        if (tipo == 1) {
+            for (int i = 1; i < r; i++) {
+                if (tokens[i].type == JSMN_STRING) {
+                    if (jsoneq(payloadJSON, &tokens[i], "Nome") == 0) {
+                        fprintf(fp, "Nome: %.*s\n", tokens[i+1].end - tokens[i+1].start, payloadJSON + tokens[i+1].start);
+                        i++;
+                    } else if (jsoneq(payloadJSON, &tokens[i], "Novo.nome") == 0) {
+                        fprintf(fp, "Novo nome: %.*s\n", tokens[i+1].end - tokens[i+1].start, payloadJSON + tokens[i+1].start);
+                        i++;
+                    } else if (jsoneq(payloadJSON, &tokens[i], "Local") == 0) {
+                        fprintf(fp, "Local: %.*s\n", tokens[i+1].end - tokens[i+1].start, payloadJSON + tokens[i+1].start);
+                        i++;
+                    }
+                }
+            }
+        } else if (tipo == 2) {
+            for (int i = 1; i < r; i++) {
+                if (tokens[i].type == JSMN_STRING) {
+                    if (jsoneq(payloadJSON, &tokens[i], "Numero.de.copias") == 0) {
+                        fprintf(fp, "Número de cópias: %.*s\n", tokens[i+1].end - tokens[i+1].start, payloadJSON + tokens[i+1].start);
+                        i++;
+                    } else if (jsoneq(payloadJSON, &tokens[i], "Cor") == 0) {
+                        fprintf(fp, "Cor: %.*s\n", tokens[i+1].end - tokens[i+1].start, payloadJSON + tokens[i+1].start);
+                        i++;
+                    } else if (jsoneq(payloadJSON, &tokens[i], "Nome.impressora") == 0) {
+                        fprintf(fp, "Nome impressora: %.*s\n", tokens[i+1].end - tokens[i+1].start, payloadJSON + tokens[i+1].start);
+                        i++;
+                    }
+                }
+            }
+        } else {
+            fprintf(fp, "Tipo de tarefa desconhecido ou não suportado.\n");
+        }
     }
 
     // Escrever tarefas pendentes da fila de prioridade
@@ -379,7 +504,8 @@ void gerarRelatorio(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizada
                 tarefa->dataCriacao.tm_year + 1900, tarefa->dataCriacao.tm_mon + 1, tarefa->dataCriacao.tm_mday,
                 tarefa->dataCriacao.tm_hour, tarefa->dataCriacao.tm_min, tarefa->dataCriacao.tm_sec);
         fprintf(fp, "Estado: %d\n", tarefa->estado);
-        fprintf(fp, "Payload JSON: %s\n\n", tarefa->payloadJSON);
+        imprimirPayloadJSONNoArquivo(fp, tarefa->payloadJSON, tarefa->tipo);
+        fprintf(fp, "\n");
         temp = temp->next;
     }
 
@@ -398,13 +524,13 @@ void gerarRelatorio(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizada
                 tarefa->dataConclusao.tm_year + 1900, tarefa->dataConclusao.tm_mon + 1, tarefa->dataConclusao.tm_mday,
                 tarefa->dataConclusao.tm_hour, tarefa->dataConclusao.tm_min, tarefa->dataConclusao.tm_sec);
         fprintf(fp, "Estado: %d\n", tarefa->estado);
-        fprintf(fp, "Payload JSON: %s\n\n", tarefa->payloadJSON);
+        imprimirPayloadJSONNoArquivo(fp, tarefa->payloadJSON, tarefa->tipo);
+        fprintf(fp, "\n");
     }
 
     fclose(fp);
     printf("Relatório gerado com sucesso em 'relatorio.txt'!\n");
 }
-
 
 
 void buscarTarefaPorID(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas, int id) {
@@ -473,16 +599,17 @@ void listarTarefas(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas
                    tarefa->dataConclusao.tm_year + 1900, tarefa->dataConclusao.tm_mon + 1, tarefa->dataConclusao.tm_mday,
                    tarefa->dataConclusao.tm_hour, tarefa->dataConclusao.tm_min, tarefa->dataConclusao.tm_sec); // Imprime a data de conclusão
         }
-        printf("Estado: %d\n", tarefa->estado); // Imprime o estado da tarefa
-        printf("Payload JSON: %s\n", tarefa->payloadJSON); // Imprime o payload JSON
+        printf("Estado(em espera=0): %d\n", tarefa->estado); // Imprime o estado da tarefa
+        printf("Payload JSON:\n");
+        imprimirPayloadJSON(tarefa->payloadJSON, tarefa->tipo);
         printf("\n");   // Imprime uma linha em branco
         temp = temp->next;  // Avança para o próximo nó na fila de prioridade
         temTarefasPendentes = 1;  // Define a flag para indicar que há tarefas pendentes
     }
 
-    // Imprime uma linha separadora se houver tarefas pendentes e concluídas
+   // Imprime uma linha separadora se houver tarefas pendentes e concluídas
     if (temTarefasPendentes && nRealizadas > 0) {
-        printf("-------------------Tarefas Realizadas------------------\n");
+        printf("Tarefas Realizadas:\n");
     }
 
     // Imprime as tarefas concluídas do array
@@ -497,8 +624,9 @@ void listarTarefas(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas
         printf("Data de Conclusão: %04d-%02d-%02d %02d:%02d:%02d\n",
                tarefasRealizadas[i].dataConclusao.tm_year + 1900, tarefasRealizadas[i].dataConclusao.tm_mon + 1, tarefasRealizadas[i].dataConclusao.tm_mday,
                tarefasRealizadas[i].dataConclusao.tm_hour, tarefasRealizadas[i].dataConclusao.tm_min, tarefasRealizadas[i].dataConclusao.tm_sec); // Imprime a data de conclusão
-        printf("Estado: %d\n", tarefasRealizadas[i].estado); // Imprime o estado da tarefa
-        printf("Payload JSON: %s\n", tarefasRealizadas[i].payloadJSON); // Imprime o payload JSON
+        printf("Estado(sucesso=2): %d\n", tarefasRealizadas[i].estado); // Imprime o estado da tarefa
+        printf("Payload JSON:\n");
+        imprimirPayloadJSON(tarefasRealizadas[i].payloadJSON, tarefasRealizadas[i].tipo);
         printf("\n");   // Imprime uma linha em branco
     }
 
@@ -588,6 +716,48 @@ void quickSort(Tarefa tarefas[], int low, int high) {   // Função para ordenar
 }
 
 
+void executarTarefa(Tarefa tarefasRealizadas[], int nRealizadas, PriorityQueue *q)
+{
+    Tarefa* tarefa = dequeue(q);    // Remover a tarefa da fila de prioridade
+     if (tarefa != NULL) {   // Verificar se a tarefa foi removida com sucesso
+                    printf("Executando tarefa:\n");   // Exibir mensagem de execução
+                    printf("ID: %d\n", tarefa->id);   // Exibir o ID da tarefa
+                    printf("Descrição: %s\n", tarefa->descricao);   // Exibir a descrição da tarefa
+                    printf("Prioridade: %d\n", tarefa->prioridade); // Exibir a prioridade da tarefa
+                    // Atualizar o estado da tarefa
+                    tarefa->estado = 1; // Tarefa em execução
+                    // Executar a tarefa (simulação)
+                    // Conclui a tarefa
+                    tarefa->estado = 2; // Tarefa concluída
+                    time_t tempoAtual = time(NULL); // Obter o tempo atual
+                    tarefa->dataConclusao = *localtime(&tempoAtual);    // Atribuir a data/hora atual à data de conclusão da tarefa
+                    printf("Payload JSON:\n");
+                    imprimirPayloadJSON(tarefa->payloadJSON, tarefa->tipo);
+                    tarefasRealizadas[nRealizadas++] = *tarefa; // Adicionar a tarefa ao array de tarefas realizadas
+                    printf("Tarefa concluída.\n");  // Exibir mensagem de conclusão
+                }
+                else {  // Se não houver tarefas na fila de prioridade
+                    printf("Nenhuma tarefa na fila de prioridade para executar.\n"); // Exibir mensagem de erro
+                }
+}
+
+/*void voltarParaMenu() {
+    printf("Para voltar ao menu escreve EXIT\n"); // Exibir mensagem para pressionar Enter
+    getchar();  // Aguardar a entrada do usuário
+    limparBuffer(); // Limpar o buffer de entrada
+    char exit[5];   // Variável para armazenar a entrada do usuário
+    fgets(exit, 5, stdin);  // Ler a entrada do usuário
+    if (strcmp(exit, "EXIT") == 0) {    // Verificar se a entrada do usuário é "EXIT"
+        return; // Retornar ao chamador
+    }
+    else {  // Se a entrada do usuário não for "EXIT"
+        printf("Comando inválido!\n");  // Exibir mensagem de erro
+        voltarParaMenu();   // Chamar a função novamente
+    }
+
+}*/
+
+
 
 int main() {    // Função principal
     int choice;
@@ -617,22 +787,7 @@ int main() {    // Função principal
             }
             case 2: {
                 // Executar tarefa
-                Tarefa* tarefa = dequeue(q);    // Remover a tarefa da fila de prioridade
-                if (tarefa != NULL) {   // Verificar se a tarefa foi removida com sucesso
-                    printf("Executando tarefa:\n");   // Exibir mensagem de execução
-                    printf("ID: %d\n", tarefa->id);   // Exibir o ID da tarefa
-                    printf("Descrição: %s\n", tarefa->descricao);   // Exibir a descrição da tarefa
-                    printf("Prioridade(1-Alto 0-Baixo): %d\n", tarefa->prioridade); // Exibir a prioridade da tarefa
-                    // Atualizar o estado da tarefa
-                    tarefa->estado = 1; // Tarefa em execução
-                    // Executar a tarefa (simulação)
-                    // Conclui a tarefa
-                    tarefa->estado = 2; // Tarefa concluída
-                    time_t tempoAtual = time(NULL); // Obter o tempo atual
-                    tarefa->dataConclusao = *localtime(&tempoAtual);    // Atribuir a data/hora atual à data de conclusão da tarefa
-                    tarefasRealizadas[nRealizadas++] = *tarefa; // Adicionar a tarefa ao array de tarefas realizadas
-                    printf("Tarefa concluída.\n");  // Exibir mensagem de conclusão
-                }
+                executarTarefa(tarefasRealizadas, nRealizadas, q);   // Executar a tarefa
                 break;  // Sair do switch
             }
             case 3: {
