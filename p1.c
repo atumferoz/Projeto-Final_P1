@@ -206,16 +206,47 @@ int main() {
 
 
 
+/*
+
+Tarefa* tarefa = dequeue(q);    // Remover a tarefa da fila de prioridade
+                if (tarefa != NULL) {   // Verificar se a tarefa foi removida com sucesso
+                    printf("Executando tarefa:\n");   // Exibir mensagem de execução
+                    printf("ID: %d\n", tarefa->id);   // Exibir o ID da tarefa
+                    printf("Descrição: %s\n", tarefa->descricao);   // Exibir a descrição da tarefa
+                    printf("Prioridade: %d\n", tarefa->prioridade); // Exibir a prioridade da tarefa
+                    // Atualizar o estado da tarefa
+                    tarefa->estado = 1; // Tarefa em execução
+                    // Executar a tarefa (simulação)
+                    // Conclui a tarefa
+                    tarefa->estado = 2; // Tarefa concluída
+                    time_t tempoAtual = time(NULL); // Obter o tempo atual
+                    tarefa->dataConclusao = *localtime(&tempoAtual);    // Atribuir a data/hora atual à data de conclusão da tarefa
+                    tarefasRealizadas[nRealizadas++] = *tarefa; // Adicionar a tarefa ao array de tarefas realizadas
+                    printf("Tarefa concluída.\n");  // Exibir mensagem de conclusão
+                }
+                break;  // Sair do switch
 
 
 
 
 
 
-
+printf("Executando tarefa:\n");
+    printf("ID: %d\n", tarefa->id);
+    printf("Descrição: %s\n", tarefa->descricao);
+    printf("Prioridade: %d\n", tarefa->prioridade);
+    // Atualizar o estado da tarefa
+    tarefa->estado = 1; // Tarefa em execução
+    // Executar a tarefa (simulação)
+    // Conclui a tarefa
+    tarefa->estado = 2; // Tarefa concluída
+    time_t tempoAtual = time(NULL); // Obter o tempo atual
+    tarefa->dataConclusao = *localtime(&tempoAtual);    // Atribuir a data/hora atual à data de conclusão da tarefa
+    tarefasRealizadas[nRealizadas++] = *tarefa; // Adicionar a tarefa ao array de tarefas realizadas
+    printf("Tarefa concluída.\n");  // Exibir mensagem de conclusão
 //Está parte foi codigo escrito por mim que ão fico implrementado no codigo final e tenho o guardado para futuras referencias e saber o que fiz de errado
 
-
+*/
 
 /*priorityqueue(Node** head, Tarefa* tarefa) { // Fila de prioridade
     Node* node = (Node*) malloc(sizeof(Node));  // Alocar memória para o nó
@@ -274,3 +305,146 @@ int dequeue(PriorityQueue* q) { // Remover um nó da fila
 }
 */
 
+
+
+
+int main() {    // Função principal
+    int choice;
+    setlocale(LC_ALL, "Portuguese");
+    PriorityQueue* q = createQueue();   // Criar uma nova fila de prioridade
+    Stack* lowPriorityStack = malloc(sizeof(Stack));    // Alocar memória para a pilha de tarefas de baixa prioridade
+    if (!lowPriorityStack) {    // Verificar se a pilha foi alocada corretamente
+        printf("Erro ao alocar memória para a pilha!\n");   // Exibir mensagem de erro
+        exit(EXIT_FAILURE); // Encerrar o programa com falha
+    }
+    lowPriorityStack->top = NULL;   // Inicializar o topo da pilha como nulo
+
+    Tarefa tarefasRealizadas[300];  // Array para armazenar as tarefas realizadas
+    int nRealizadas = 0;    // Contador para o número de tarefas realizadas
+
+    do
+    {
+        choice = menu();
+        switch (choice) {   // Verificar a escolha do usuário
+            case 1: {
+                // Criar tarefa
+                Tarefa* novaTarefa = (Tarefa*)malloc(sizeof(Tarefa));   // Alocar memória para uma nova tarefa
+                criarTarefa(q, tarefasRealizadas, nRealizadas, novaTarefa);    // Criar a nova tarefa
+                enqueue(q, novaTarefa); // Adicionar a nova tarefa à fila de prioridade
+                pushLowPriorityTasks(lowPriorityStack, novaTarefa);  // Adicionar a nova tarefa à pilha de tarefas de baixa prioridade
+                break;  // Sair do switch
+            }
+            case 2: {
+                // Executar tarefa
+                executarTarefa(tarefasRealizadas, nRealizadas, q);   // Executar a tarefa
+                break;  // Sair do switch
+            }
+            case 3: {
+                // Buscar tarefa por ID
+                int id; // Variável para armazenar o ID da tarefa a buscar
+                printf("Digite o ID da tarefa a buscar: "); // Solicitar ao usuário o ID da tarefa
+                scanf("%d", &id);   // Ler o ID da tarefa
+                limparBuffer(); // Limpar o buffer de entrada
+                buscarTarefaPorID(q, tarefasRealizadas, nRealizadas, id);   // Buscar a tarefa na fila de prioridade e no array de tarefas realizadas
+                break;  // Sair do switch
+            }
+            case 4: {
+                // Listar tarefas
+                listarTarefas(q, tarefasRealizadas, nRealizadas);   // Listar as tarefas na fila de prioridade
+                break;  // Sair do switch
+            }
+            case 5:
+               gerarRelatorio(q, tarefasRealizadas, nRealizadas);
+                break;
+            case 6: {
+                // Salvar tarefas em ficheiro
+                salvarTarefasEmFicheiro(tarefasRealizadas, nRealizadas);   // Salvar as tarefas realizadas em um ficheiro
+                break;  // Sair do switch
+            }
+            case 7:{
+                // Carregar tarefas do ficheiro
+                carregarTarefasDoFicheiro(q, lowPriorityStack);  // Carregar as tarefas do ficheiro
+                break;  // Sair do switch
+            }
+            case -1:{
+                printf("Voltando ao menu principal...\n");
+                break;
+            }
+            case 0:
+                printf("Saindo do programa...\n");  // Exibir mensagem de saída
+                freeQueue(q);   // Liberar a memória alocada para a fila de prioridade
+                freeStack(lowPriorityStack);    // Liberar a memória alocada para a pilha de tarefas de baixa prioridade
+                exit(0);    // Encerrar o programa
+            default:
+                printf("Opção inválida!\n");    // Exibir mensagem de erro
+        }
+    } while (choice != 0 && choice != -1);
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    while (1) { // Loop infinito para exibir o menu
+
+        choice = menu();
+        switch (choice) {   // Verificar a escolha do usuário
+            case 1: {
+                // Criar tarefa
+                Tarefa* novaTarefa = (Tarefa*)malloc(sizeof(Tarefa));   // Alocar memória para uma nova tarefa
+                criarTarefa(q, tarefasRealizadas, nRealizadas, novaTarefa);    // Criar a nova tarefa
+                enqueue(q, novaTarefa); // Adicionar a nova tarefa à fila de prioridade
+                pushLowPriorityTasks(lowPriorityStack, novaTarefa);  // Adicionar a nova tarefa à pilha de tarefas de baixa prioridade
+                break;  // Sair do switch
+            }
+            case 2: {
+                // Executar tarefa
+                executarTarefa(tarefasRealizadas, nRealizadas, q);   // Executar a tarefa
+                break;  // Sair do switch
+            }
+            case 3: {
+                // Buscar tarefa por ID
+                int id; // Variável para armazenar o ID da tarefa a buscar
+                printf("Digite o ID da tarefa a buscar: "); // Solicitar ao usuário o ID da tarefa
+                scanf("%d", &id);   // Ler o ID da tarefa
+                limparBuffer(); // Limpar o buffer de entrada
+                buscarTarefaPorID(q, tarefasRealizadas, nRealizadas, id);   // Buscar a tarefa na fila de prioridade e no array de tarefas realizadas
+                break;  // Sair do switch
+            }
+            case 4: {
+                // Listar tarefas
+                listarTarefas(q, tarefasRealizadas, nRealizadas);   // Listar as tarefas na fila de prioridade
+                break;  // Sair do switch
+            }
+            case 5:
+               gerarRelatorio(q, tarefasRealizadas, nRealizadas);
+                break;
+            case 6: {
+                // Salvar tarefas em ficheiro
+                salvarTarefasEmFicheiro(tarefasRealizadas, nRealizadas);   // Salvar as tarefas realizadas em um ficheiro
+                break;  // Sair do switch
+            }
+            case 7:
+                // Carregar tarefas do ficheiro
+                carregarTarefasDoFicheiro(q, lowPriorityStack);  // Carregar as tarefas do ficheiro
+                break;  // Sair do switch
+            case 0:
+                printf("Saindo do programa...\n");  // Exibir mensagem de saída
+                freeQueue(q);   // Liberar a memória alocada para a fila de prioridade
+                freeStack(lowPriorityStack);    // Liberar a memória alocada para a pilha de tarefas de baixa prioridade
+                exit(0);    // Encerrar o programa
+            default:
+                printf("Opção inválida!\n");    // Exibir mensagem de erro
+        }
+    }
+    return 0;
+}
