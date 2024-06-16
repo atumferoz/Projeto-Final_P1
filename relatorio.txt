@@ -1,0 +1,27 @@
+Tarefas Pendentes:
+ID: 2222
+Descrição: saw
+Prioridade: 0
+Tipo: 2
+Data de Criação: 2024-06-15 20:30:37
+Estado: 0
+Payload JSON: {
+	"Numero.de.copias": 1,
+	"Cor": "preto",
+	"Nome.impressora": "hp"
+	}
+
+Tarefas Realizadas:
+ID: 1111
+Descrição: see
+Prioridade: 1
+Tipo: 1
+Data de Criação: 2024-06-15 20:30:16
+Data de Conclusão: 2024-06-15 20:30:41
+Estado: 2
+Payload JSON: {
+	"Nome": "for",
+	"Novo.nome": "from",
+	"Local": "viana",
+	}
+
