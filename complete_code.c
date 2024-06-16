@@ -270,13 +270,14 @@ void salvarTarefasEmFicheiro(Tarefa *tarefasRealizadas, int nRealizadas) {
     if (fp != NULL) {
         for (int i = 0; i < nRealizadas; i++) {
             Tarefa *tarefa = &tarefasRealizadas[i];
-            fprintf(fp, "%d;%s;%d;%d;%d-%d-%d;%d:%d:%d;%d;%d-%d-%d;%d:%d:%d\n",
+            fprintf(fp, "%d;%s;%d;%d;%d-%d-%d;%d:%d:%d;%d;%d-%d-%d;%d:%d:%d;%s;\n",
                 tarefa->id, tarefa->descricao, tarefa->prioridade, tarefa->tipo,
                 tarefa->dataCriacao.tm_year + 1900, tarefa->dataCriacao.tm_mon + 1, tarefa->dataCriacao.tm_mday,
                 tarefa->dataCriacao.tm_hour, tarefa->dataCriacao.tm_min, tarefa->dataCriacao.tm_sec,
                 tarefa->estado,
                 tarefa->dataConclusao.tm_year + 1900, tarefa->dataConclusao.tm_mon + 1, tarefa->dataConclusao.tm_mday,
-                tarefa->dataConclusao.tm_hour, tarefa->dataConclusao.tm_min, tarefa->dataConclusao.tm_sec);
+                tarefa->dataConclusao.tm_hour, tarefa->dataConclusao.tm_min, tarefa->dataConclusao.tm_sec,
+                tarefa->payloadJSON ? tarefa->payloadJSON : ""); // Adiciona o payload JSON em uma linha
         }
         fclose(fp);
         printf("Tarefas salvas com sucesso!\n");
@@ -285,29 +286,50 @@ void salvarTarefasEmFicheiro(Tarefa *tarefasRealizadas, int nRealizadas) {
     }
 }
 
+
 void carregarTarefasDoFicheiro(PriorityQueue *q, Stack *lowPriorityStack) {
     FILE *fp = fopen("tarefas.txt", "r"); // Abrir o ficheiro para leitura
     if (fp != NULL) {
         char linha[2048];
         while (fgets(linha, sizeof(linha), fp)) { // Enquanto não for o final do ficheiro
             Tarefa *tarefa = (Tarefa*)malloc(sizeof(Tarefa));   // Alocar memória para uma nova tarefa
-            tarefa->payloadJSON = (char*)malloc(1024);
+            tarefa->payloadJSON = (char*)malloc(2048); // Alocar memória para o payload JSON
 
-            sscanf(linha, "%d;%299[^;];%d;%d;%d-%d-%d;%d:%d:%d;%d;%d-%d-%d;%d:%d:%d",
-                &tarefa->id, tarefa->descricao, &tarefa->prioridade, &tarefa->tipo,
-                &tarefa->dataCriacao.tm_year, &tarefa->dataCriacao.tm_mon, &tarefa->dataCriacao.tm_mday,
-                &tarefa->dataCriacao.tm_hour, &tarefa->dataCriacao.tm_min, &tarefa->dataCriacao.tm_sec,
-                &tarefa->estado,
-                &tarefa->dataConclusao.tm_year, &tarefa->dataConclusao.tm_mon, &tarefa->dataConclusao.tm_mday,
-                &tarefa->dataConclusao.tm_hour, &tarefa->dataConclusao.tm_min, &tarefa->dataConclusao.tm_sec);
+            // Localizar o início do payload JSON
+            char *payloadStart = strchr(linha, '{');
+            if (payloadStart) {
+                // Copiar a parte antes do payload
+                sscanf(linha, "%d;%299[^;];%d;%d;%d-%d-%d;%d:%d:%d;%d;%d-%d-%d;%d:%d:%d;",
+                    &tarefa->id, tarefa->descricao, &tarefa->prioridade, &tarefa->tipo,
+                    &tarefa->dataCriacao.tm_year, &tarefa->dataCriacao.tm_mon, &tarefa->dataCriacao.tm_mday,
+                    &tarefa->dataCriacao.tm_hour, &tarefa->dataCriacao.tm_min, &tarefa->dataCriacao.tm_sec,
+                    &tarefa->estado,
+                    &tarefa->dataConclusao.tm_year, &tarefa->dataConclusao.tm_mon, &tarefa->dataConclusao.tm_mday,
+                    &tarefa->dataConclusao.tm_hour, &tarefa->dataConclusao.tm_min, &tarefa->dataConclusao.tm_sec);
 
-            tarefa->dataCriacao.tm_year -= 1900;
-            tarefa->dataCriacao.tm_mon -= 1;
-            tarefa->dataConclusao.tm_year -= 1900;
-            tarefa->dataConclusao.tm_mon -= 1;
+                tarefa->dataCriacao.tm_year -= 1900;
+                tarefa->dataCriacao.tm_mon -= 1;
+                tarefa->dataConclusao.tm_year -= 1900;
+                tarefa->dataConclusao.tm_mon -= 1;
 
-            enqueue(q, tarefa); // Adicionar a tarefa à fila de prioridade
-            pushLowPriorityTasks(lowPriorityStack, tarefa);   // Adicionar a tarefa à pilha de tarefas de baixa prioridade
+                // Copiar o payload JSON incluindo as quebras de linha
+                strcpy(tarefa->payloadJSON, payloadStart);
+                while (strchr(tarefa->payloadJSON, '}') == NULL) {
+                    if (fgets(linha, sizeof(linha), fp) == NULL) {
+                        break;
+                    }
+                    strcat(tarefa->payloadJSON, linha);
+                }
+
+                // Remover o ponto e vírgula final
+                char *semicolon = strrchr(tarefa->payloadJSON, ';');
+                if (semicolon) {
+                    *semicolon = '\0';
+                }
+
+                enqueue(q, tarefa); // Adicionar a tarefa à fila de prioridade
+                pushLowPriorityTasks(lowPriorityStack, tarefa);   // Adicionar a tarefa à pilha de tarefas de baixa prioridade
+            }
         }
         fclose(fp);
         printf("Tarefas carregadas com sucesso!\n");
@@ -315,6 +337,8 @@ void carregarTarefasDoFicheiro(PriorityQueue *q, Stack *lowPriorityStack) {
         printf("Erro ao abrir o arquivo para carregar as tarefas!\n");
     }
 }
+
+
 
 void gerarRelatorio(PriorityQueue *q, Tarefa tarefasRealizadas[], int nRealizadas) {
     FILE *fp = fopen("relatorio.txt", "w");   // Abrir o ficheiro para escrita
